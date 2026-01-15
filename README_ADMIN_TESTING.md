@@ -22,7 +22,7 @@
 ### Using curl:
 
 ```bash
-curl -X POST http://localhost:5001/api/auth/login \
+curl -X POST http://localhost:5001/api/auth-----------------/login \
   -H "Content-Type: application/json" \
   -d '{"email":"Admin@kgplaunchpad.in","password":"IITKGP2026"}'
 ```
