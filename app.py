@@ -450,6 +450,17 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Health check endpoint
+@app.route('/', methods=['GET'])
+def health_check():
+    db_path = get_db_path()
+    db_status = 'connected' if os.path.exists(db_path) else 'missing'
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'database': db_status
+    }), 200
+
 # Auth routes
 @app.route('/api/auth/register', methods=['POST'])
 def register():

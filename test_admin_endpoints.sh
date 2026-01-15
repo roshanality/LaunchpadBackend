@@ -2,7 +2,8 @@
 # Test script for admin endpoints
 # Make sure the backend server is running on port 5001
 
-BASE_URL="http://localhost:5001"
+BASE_URL="https://kgplaunchpad.pythonanywhere.com"  # "http://localhost:5001"
+
 ADMIN_EMAIL="Admin@kgplaunchpad.in"
 ADMIN_PASSWORD="IITKGP2026"
 
