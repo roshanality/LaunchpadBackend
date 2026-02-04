@@ -25,6 +25,14 @@ def seed_database():
     cursor.execute('DELETE FROM blog_posts')
     cursor.execute('DELETE FROM projects')
     cursor.execute('DELETE FROM users')
+
+    # ----------------- Admin User -----------------
+    admin_password = generate_password_hash('IITKGP2026')
+    cursor.execute('''
+        INSERT INTO users (name, email, password_hash, role, is_approved)
+        VALUES (?, ?, ?, ?, ?)
+    ''', ('Admin', 'Admin@kgplaunchpad.in', admin_password, 'admin', True))
+    print("✓ Admin user created")
     
     # ----------------- Users with Complete Profiles -----------------
     users = [
@@ -1328,9 +1336,10 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     
     for app in project_applications:
         cursor.execute('''
-            INSERT INTO project_applications (project_id, position_id, student_id, message, status, has_team)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (app['project_id'], app['position_id'], app['student_id'], app['message'], app['status'], app.get('has_team', False)))
+            INSERT INTO project_applications (project_id, position_id, student_id, message, status, has_team, feedback, completed_at, is_completed)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (app['project_id'], app['position_id'], app['student_id'], app['message'], app['status'], 
+              app.get('has_team', False), app.get('feedback'), app.get('completed_at'), app.get('is_completed', False)))
 
     # ----------------- Conversations & Messages -----------------
     conversation_pairs = [
@@ -1383,12 +1392,78 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
                 VALUES (?, ?)
             ''', (post_id, user_ids[student_email]))
 
+    # ----------------- Services -----------------
+    services_data = [
+        {
+            'provider_email': 'rajesh.kumar@iitkgp.ac.in',
+            'title': 'AI Healthcare Consulting',
+            'description': 'End-to-end consulting for implementing AI in healthcare. We specialize in medical imaging analysis, patient data privacy, and regulatory compliance. Our team has successfully deployed solutions in 5 major hospitals.',
+            'category': 'AI & Machine Learning',
+            'price_range': '$5000 - $15000',
+            'delivery_time': '4-8 weeks',
+            'image_url': 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80&w=2070'
+        },
+        {
+            'provider_email': 'priya.sharma@iitkgp.ac.in',
+            'title': 'IoT Prototyping & Development',
+            'description': 'Rapid prototyping and full-scale development of IoT solutions. Expertise in smart home devices, industrial sensors, and energy management systems. We handle everything from hardware selection to cloud integration.',
+            'category': 'IoT & Hardware',
+            'price_range': '$3000 - $10000',
+            'delivery_time': '3-6 weeks',
+            'image_url': 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=2070'
+        },
+        {
+            'provider_email': 'amit.singh@iitkgp.ac.in',
+            'title': 'Robotics Automation Solutions',
+            'description': 'Custom robotic automation systems for manufacturing and logistics. We design, build, and deploy robotic arms, AGVs, and quality inspection systems. Increase your efficiency and reduce operational costs.',
+            'category': 'Robotics',
+            'price_range': '$10000 - $50000',
+            'delivery_time': '8-12 weeks',
+            'image_url': 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&q=80&w=2070'
+        },
+        {
+            'provider_email': 'vikram.patel@iitkgp.ac.in',
+            'title': 'Smart City Planning & GIS',
+            'description': 'Urban planning and infrastructure consulting using advanced GIS and 3D modeling tools. We help cities and developers optimize land use, traffic flow, and utility placement.',
+            'category': 'Urban Planning',
+            'price_range': '$8000 - $25000',
+            'delivery_time': '6-10 weeks',
+            'image_url': 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&q=80&w=2070'
+        },
+        {
+            'provider_email': 'meera.krishnan@iitkgp.ac.in',
+            'title': 'Sustainable Process Engineering',
+            'description': 'Green chemistry consulting and industrial process optimization. We help manufacturers reduce waste, improve energy efficiency, and transition to sustainable practices.',
+            'category': 'Sustainability',
+            'price_range': '$4000 - $12000',
+            'delivery_time': '4-8 weeks',
+            'image_url': 'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&q=80&w=2070'
+        }
+    ]
+    
+    for service in services_data:
+        if service['provider_email'] in user_ids:
+            cursor.execute('''
+                INSERT INTO services (provider_id, title, description, category, price_range, delivery_time, image_url, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                user_ids[service['provider_email']],
+                service['title'],
+                service['description'],
+                service['category'],
+                service.get('price_range'),
+                service.get('delivery_time'),
+                service.get('image_url'),
+                True
+            ))
+
     conn.commit()
     conn.close()
     print("✅ Database seeded successfully with comprehensive data!")
     print("\n📊 Summary:")
     print(f"   - Users: {len(users)} (6 Alumni, 6 Students)")
     print(f"   - Projects: {len(projects)}")
+    print(f"   - Services: {len(services_data)}")
     print(f"   - Project Positions: {len(project_positions)}")
     print(f"   - Blog Posts: {len(blog_posts)}")
     print(f"   - Mentorship Requests: {len(mentorship_requests)}")

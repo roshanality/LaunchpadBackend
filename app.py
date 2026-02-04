@@ -83,6 +83,8 @@ def init_db():
             linkedin TEXT,
             github TEXT,
             avatar TEXT,
+            is_available BOOLEAN DEFAULT 1,
+            is_approved BOOLEAN DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -376,6 +378,10 @@ def init_db():
             position_id INTEGER,
             message TEXT,
             status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
+            feedback TEXT,
+            completed_at TIMESTAMP,
+            is_completed BOOLEAN DEFAULT 0,
+            has_team BOOLEAN DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (student_id) REFERENCES users (id),
             FOREIGN KEY (project_id) REFERENCES projects (id),
@@ -446,6 +452,40 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
+
+    # Launchpad Services table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS services (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            category TEXT NOT NULL,
+            price_range TEXT,
+            delivery_time TEXT,
+            image_url TEXT,
+            is_active BOOLEAN DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (provider_id) REFERENCES users (id)
+        )
+    ''')
+    
+    # Launchpad Service Requests table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS service_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            service_id INTEGER,
+            project_type TEXT NOT NULL,
+            description TEXT NOT NULL,
+            budget_range TEXT,
+            status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'contacted', 'in_progress', 'completed', 'cancelled')),
+            admin_notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (service_id) REFERENCES services (id)
+        )
+    ''')
     
     conn.commit()
     conn.close()
@@ -460,6 +500,341 @@ def health_check():
         'timestamp': datetime.now().isoformat(),
         'database': db_status
     }), 200
+
+# Launchpad Routes
+
+@app.route('/api/launchpad/services', methods=['GET'])
+def get_services():
+    category = request.args.get('category')
+    search = request.args.get('search')
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        query = '''
+            SELECT s.id, s.title, s.description, s.category, s.price_range, s.delivery_time, s.image_url, s.created_at,
+                   u.name as provider_name, u.avatar as provider_avatar
+            FROM services s
+            JOIN users u ON s.provider_id = u.id
+            WHERE s.is_active = 1
+        '''
+        params = []
+        
+        if category:
+            query += ' AND s.category = ?'
+            params.append(category)
+            
+        if search:
+            query += ' AND (s.title LIKE ? OR s.description LIKE ?)'
+            params.append(f'%{search}%')
+            params.append(f'%{search}%')
+            
+        query += ' ORDER BY s.created_at DESC'
+        
+        cursor.execute(query, params)
+        
+        services = []
+        for row in cursor.fetchall():
+            services.append({
+                'id': row[0],
+                'title': row[1],
+                'description': row[2],
+                'category': row[3],
+                'price_range': row[4],
+                'delivery_time': row[5],
+                'image_url': row[6],
+                'created_at': row[7],
+                'provider_name': row[8],
+                'provider_avatar': row[9]
+            })
+            
+        return jsonify(services), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchpad/services/<int:service_id>', methods=['GET'])
+def get_service_detail(service_id):
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT s.id, s.title, s.description, s.category, s.price_range, s.delivery_time, s.image_url, s.created_at,
+                   u.id as provider_id, u.name as provider_name, u.avatar as provider_avatar, u.bio as provider_bio,
+                   u.email as provider_email
+            FROM services s
+            JOIN users u ON s.provider_id = u.id
+            WHERE s.id = ?
+        ''', (service_id,))
+        
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Service not found'}), 404
+            
+        service = {
+            'id': row[0],
+            'title': row[1],
+            'description': row[2],
+            'category': row[3],
+            'price_range': row[4],
+            'delivery_time': row[5],
+            'image_url': row[6],
+            'created_at': row[7],
+            'provider': {
+                'id': row[8],
+                'name': row[9],
+                'avatar': row[10],
+                'bio': row[11],
+                'email': row[12]
+            }
+        }
+        
+        return jsonify(service), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchpad/services', methods=['POST'])
+@jwt_required()
+def create_service():
+    user_id = get_user_id_from_jwt()
+    data = request.get_json()
+    
+    required_fields = ['title', 'description', 'category']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'error': f'{field} is required'}), 400
+            
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            INSERT INTO services (provider_id, title, description, category, price_range, delivery_time, image_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            user_id,
+            data['title'],
+            data['description'],
+            data['category'],
+            data.get('price_range'),
+            data.get('delivery_time'),
+            data.get('image_url')
+        ))
+        
+        service_id = cursor.lastrowid
+        conn.commit()
+        
+        return jsonify({'message': 'Service created successfully', 'id': service_id}), 201
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchpad/my-services', methods=['GET'])
+@jwt_required()
+def get_my_services():
+    user_id = get_user_id_from_jwt()
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT id, title, description, category, price_range, delivery_time, image_url, created_at, is_active
+            FROM services
+            WHERE provider_id = ?
+            ORDER BY created_at DESC
+        ''', (user_id,))
+        
+        services = []
+        for row in cursor.fetchall():
+            services.append({
+                'id': row[0],
+                'title': row[1],
+                'description': row[2],
+                'category': row[3],
+                'price_range': row[4],
+                'delivery_time': row[5],
+                'image_url': row[6],
+                'created_at': row[7],
+                'is_active': bool(row[8])
+            })
+            
+        return jsonify(services), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchpad/services/<int:service_id>', methods=['PUT'])
+@jwt_required()
+def update_service(service_id):
+    user_id = get_user_id_from_jwt()
+    data = request.get_json()
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Check ownership
+        cursor.execute('SELECT provider_id FROM services WHERE id = ?', (service_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Service not found'}), 404
+        if row[0] != user_id:
+            return jsonify({'error': 'Unauthorized'}), 403
+            
+        # Update fields
+        update_fields = []
+        params = []
+        
+        allowed_fields = ['title', 'description', 'category', 'price_range', 'delivery_time', 'image_url', 'is_active']
+        
+        for field in allowed_fields:
+            if field in data:
+                update_fields.append(f"{field} = ?")
+                params.append(data[field])
+        
+        if not update_fields:
+            return jsonify({'message': 'No fields to update'}), 200
+            
+        params.append(service_id)
+        
+        cursor.execute(f'''
+            UPDATE services
+            SET {', '.join(update_fields)}
+            WHERE id = ?
+        ''', params)
+        
+        conn.commit()
+        return jsonify({'message': 'Service updated successfully'}), 200
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchpad/services/<int:service_id>', methods=['DELETE'])
+@jwt_required()
+def delete_service(service_id):
+    user_id = get_user_id_from_jwt()
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Check ownership
+        cursor.execute('SELECT provider_id FROM services WHERE id = ?', (service_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Service not found'}), 404
+        if row[0] != user_id:
+            return jsonify({'error': 'Unauthorized'}), 403
+            
+        cursor.execute('DELETE FROM services WHERE id = ?', (service_id,))
+        conn.commit()
+        
+        return jsonify({'message': 'Service deleted successfully'}), 200
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchpad/requests', methods=['POST'])
+@jwt_required()
+def create_service_request():
+    user_id = get_user_id_from_jwt()
+    data = request.get_json()
+    
+    required_fields = ['project_type', 'description']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'error': f'{field} is required'}), 400
+            
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            INSERT INTO service_requests (user_id, service_id, project_type, description, budget_range)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (
+            user_id,
+            data.get('service_id'),
+            data['project_type'],
+            data['description'],
+            data.get('budget_range')
+        ))
+        
+        request_id = cursor.lastrowid
+        conn.commit()
+        
+        return jsonify({'message': 'Service request submitted successfully', 'id': request_id}), 201
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchpad/admin/requests', methods=['GET'])
+@jwt_required()
+def get_admin_service_requests():
+    user_id = get_user_id_from_jwt()
+    if not is_admin(user_id):
+        return jsonify({'error': 'Admin access required'}), 403
+
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute('''
+            SELECT sr.id, sr.user_id, sr.service_id, sr.project_type, sr.description, 
+                   sr.budget_range, sr.status, sr.created_at,
+                   u.name, u.email, u.avatar
+            FROM service_requests sr
+            JOIN users u ON sr.user_id = u.id
+            ORDER BY sr.created_at DESC
+        ''')
+
+        requests = []
+        for row in cursor.fetchall():
+            requests.append({
+                'id': row[0],
+                'user_id': row[1],
+                'service_id': row[2],
+                'project_type': row[3],
+                'description': row[4],
+                'budget_range': row[5],
+                'status': row[6],
+                'created_at': row[7],
+                'user': {
+                    'id': row[1],
+                    'name': row[8],
+                    'email': row[9],
+                    'avatar': row[10]
+                }
+            })
+
+        return jsonify(requests), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
 
 # Auth routes
 @app.route('/api/auth/register', methods=['POST'])
@@ -697,30 +1072,7 @@ def is_admin(user_id):
     finally:
         conn.close()
 
-# Initialize admin user
-def init_admin():
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    try:
-        # Check if admin already exists
-        cursor.execute('SELECT id FROM users WHERE email = ?', ('Admin@kgplaunchpad.in',))
-        if cursor.fetchone():
-            return
-        
-        # Create admin user
-        password_hash = generate_password_hash('IITKGP2026')
-        cursor.execute('''
-            INSERT INTO users (name, email, password_hash, role, is_approved)
-            VALUES (?, ?, ?, ?, ?)
-        ''', ('Admin', 'Admin@kgplaunchpad.in', password_hash, 'admin', True))
-        conn.commit()
-        print("Admin user created successfully")
-    except Exception as e:
-        print(f"Error creating admin user: {e}")
-        conn.rollback()
-    finally:
-        conn.close()
+
 
 # Admin routes
 @app.route('/api/admin/pending-founders', methods=['GET'])
@@ -4081,5 +4433,5 @@ def update_student_dashboard():
 
 if __name__ == '__main__':
     init_db()
-    init_admin()
+
     app.run(debug=True, port=5001)
