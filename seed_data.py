@@ -25,6 +25,10 @@ def seed_database():
     cursor.execute('DELETE FROM blog_posts')
     cursor.execute('DELETE FROM projects')
     cursor.execute('DELETE FROM users')
+    cursor.execute('DELETE FROM courses')
+    cursor.execute('DELETE FROM course_enrollments')
+    cursor.execute('DELETE FROM events')
+    cursor.execute('DELETE FROM event_enrollments')
 
     # ----------------- Admin User -----------------
     admin_password = generate_password_hash('IITKGP2026')
@@ -1456,6 +1460,113 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
                 service.get('image_url'),
                 True
             ))
+
+    # ----------------- Courses -----------------
+    courses = [
+        {
+            'title': 'Full Stack Web Development',
+            'description': 'Master the MERN stack with this comprehensive course. Learn React, Node.js, Express, and MongoDB by building real-world projects.',
+            'perks': 'Job assistance, 1-on-1 mentorship, Certification',
+            'timeline': 'Week 1-4: Frontend (React)\nWeek 5-8: Backend (Node.js)\nWeek 9-12: Full Stack Project',
+            'duration': '12 Weeks',
+            'assignments': '5 Major Projects, 10+ Mini Projects',
+            'category': 'Development',
+            'image_url': 'https://images.unsplash.com/photo-1593720213428-28a5b9e94613?q=80&w=1200&auto=format&fit=crop',
+            'price': 4999,
+            'start_date': (datetime.now() + timedelta(days=10)).strftime('%Y-%m-%d')
+        },
+        {
+            'title': 'Data Science Bootcamp',
+            'description': 'Become a Data Scientist in 16 weeks. Learn Python, SQL, Machine Learning, and Deep Learning.',
+            'perks': 'Portfolio reviews, Kaggle competition prep, Industry expert sessions',
+            'timeline': 'Month 1: Python & SQL\nMonth 2: ML Algorithms\nMonth 3: Deep Learning\nMonth 4: Final Capstone',
+            'duration': '16 Weeks',
+            'assignments': '3 Case Studies, 1 Capstone Project',
+            'category': 'Data Science',
+            'image_url': 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1200&auto=format&fit=crop',
+            'price': 6999,
+            'start_date': (datetime.now() + timedelta(days=20)).strftime('%Y-%m-%d')
+        },
+        {
+            'title': 'UI/UX Design Masterclass',
+            'description': 'Learn to design beautiful and functional user interfaces. Master Figma, prototyping, and design systems.',
+            'perks': 'Portfolio building, Design critique sessions',
+            'timeline': 'Week 1-2: Design Theory\nWeek 3-4: Figma Mastery\nWeek 5-6: Prototyping\nWeek 7-8: Capstone',
+            'duration': '8 Weeks',
+            'assignments': 'Redesign App, Create Design System',
+            'category': 'Design',
+            'image_url': 'https://images.unsplash.com/photo-1561070791-2526d30994b5?q=80&w=1200&auto=format&fit=crop',
+            'price': 3499,
+            'start_date': (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d')
+        }
+    ]
+
+    for course in courses:
+        cursor.execute('''
+            INSERT INTO courses (title, description, perks, timeline, duration, assignments, category, image_url, price, start_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (course['title'], course['description'], course['perks'], course['timeline'], 
+              course['duration'], course['assignments'], course['category'], course['image_url'], 
+              course['price'], course['start_date']))
+    
+    print("✓ Courses seeded")
+
+    # ----------------- Events -----------------
+    events = [
+        {
+            'title': 'Tech Leaders Podcast: Future of AI',
+            'description': 'Join us for an insightful podcast with industry leaders discussing the future of Artificial Intelligence and its impact on the job market.',
+            'type': 'Podcast',
+            'date': (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d'),
+            'time': '18:00',
+            'location': 'Spotify / Apple Podcasts',
+            'image_url': 'https://images.unsplash.com/photo-1478737270239-2f02b77ac6d5?q=80&w=1200&auto=format&fit=crop'
+        },
+        {
+            'title': 'Startup Fundraising Seminar',
+            'description': 'Learn the secrets of successful fundraising from founders who have raised millions. Topics include pitch decks, valuation, and investor relations.',
+            'type': 'Seminar',
+            'date': (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d'),
+            'time': '10:00',
+            'location': 'Netaji Auditorium',
+            'image_url': 'https://images.unsplash.com/photo-1515187029135-18ee286d815b?q=80&w=1200&auto=format&fit=crop'
+        },
+        {
+            'title': 'Webinar: Cracking the Product Management Interview',
+            'description': 'A comprehensive guide to ace your PM interviews. We will cover case studies, behavioral questions, and mock interviews.',
+            'type': 'Webinar',
+            'date': (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d'),
+            'time': '19:00',
+            'location': 'Zoom (Link will be shared)',
+            'image_url': 'https://images.unsplash.com/photo-1556761175-4b46a572b786?q=80&w=1200&auto=format&fit=crop'
+        },
+        {
+            'title': 'Fundae Session: Campus Life Hacks',
+            'description': 'Seniors share their tips and tricks for navigating campus life, from choosing electives to finding the best food spots.',
+            'type': 'Fundae Session',
+            'date': (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'),
+            'time': '20:00',
+            'location': 'Old Main Building',
+            'image_url': 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?q=80&w=1200&auto=format&fit=crop'
+        },
+        {
+            'title': 'Discussion Circle: Sustainable Development',
+            'description': 'An open discussion on sustainable development goals and how students can contribute. Everyone is welcome to share their ideas.',
+            'type': 'Meeting',
+            'date': (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d'),
+            'time': '17:00',
+            'location': 'TSG Conference Room',
+            'image_url': 'https://images.unsplash.com/photo-1573164713988-8665fc963095?q=80&w=1200&auto=format&fit=crop'
+        }
+    ]
+
+    for event in events:
+        cursor.execute('''
+            INSERT INTO events (title, description, type, date, time, location, image_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (event['title'], event['description'], event['type'], event['date'], event['time'], event['location'], event['image_url']))
+    
+    print("✓ Events seeded")
 
     conn.commit()
     conn.close()

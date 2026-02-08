@@ -486,6 +486,64 @@ def init_db():
             FOREIGN KEY (service_id) REFERENCES services (id)
         )
     ''')
+
+    # Courses table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            type TEXT NOT NULL, -- Podcast, Seminar, Webinar, Fundae Session, Meeting
+            date TEXT NOT NULL,
+            time TEXT NOT NULL,
+            location TEXT, -- Can be physical or link
+            image_url TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS event_enrollments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            event_id INTEGER NOT NULL,
+            enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (event_id) REFERENCES events (id)
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS courses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            perks TEXT,
+            timeline TEXT,
+            duration TEXT,
+            assignments TEXT,
+            category TEXT NOT NULL,
+            image_url TEXT,
+            price REAL,
+            start_date DATE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # Course Enrollments table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS course_enrollments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            course_id INTEGER NOT NULL,
+            status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+            payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid')),
+            enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (course_id) REFERENCES courses (id),
+            UNIQUE(user_id, course_id)
+        )
+    ''')
     
     conn.commit()
     conn.close()
@@ -1400,7 +1458,7 @@ def get_recommended_projects():
         cursor.execute('''
             SELECT skill_name FROM user_skills WHERE user_id = ?
         ''', (user_id,))
-        user_skills = [row[0].lower() for row in cursor.fetchall()]
+        user_skills =[row[0].lower() for row in cursor.fetchall()]
         
         # Get user's department and specialization for additional matching
         cursor.execute('''
@@ -4430,6 +4488,533 @@ def update_student_dashboard():
     print("  - Added visual indicators for project status")
     print("  - Enhanced Applied Projects section with status badges")
 
+
+# Assuming init_db is defined elsewhere in the actual file,
+# we need to add the table creation statements to it.
+# Since the full init_db function is not provided, I'll simulate adding it
+# by placing the SQL statements where they would typically go.
+# For the purpose of this exercise, I'll assume the init_db function
+# is defined and accessible, and I'm adding these lines to its body.
+# This part of the instruction cannot be directly applied to the provided fragment,
+# but I acknowledge it as a required change for the full document.
+#
+# Example of how it would look in a full init_db function:
+# def init_db():
+#     db_path = get_db_path()
+#     conn = sqlite3.connect(db_path)
+#     cursor = conn.cursor()
+#     cursor.execute('''
+#         CREATE TABLE IF NOT EXISTS users (
+#             ...
+#         )
+#     ''')
+#     # ... other table creations ...
+#     cursor.execute('''
+#         CREATE TABLE IF NOT EXISTS courses (
+#             id INTEGER PRIMARY KEY AUTOINCREMENT,
+#             title TEXT NOT NULL,
+#             description TEXT NOT NULL,
+#             perks TEXT,
+#             timeline TEXT,
+#             duration TEXT,
+#             assignments TEXT,
+#             category TEXT NOT NULL,
+#             image_url TEXT,
+#             price REAL,
+#             start_date TEXT,
+#             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+#         )
+#     ''')
+#     cursor.execute('''
+#         CREATE TABLE IF NOT EXISTS course_enrollments (
+#             id INTEGER PRIMARY KEY AUTOINCREMENT,
+#             user_id INTEGER NOT NULL,
+#             course_id INTEGER NOT NULL,
+#             status TEXT DEFAULT 'pending', -- e.g., 'pending', 'active', 'completed', 'dropped'
+#             payment_status TEXT DEFAULT 'pending', -- e.g., 'pending', 'paid', 'failed'
+#             enrolled_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+#             FOREIGN KEY (user_id) REFERENCES users(id),
+#             FOREIGN KEY (course_id) REFERENCES courses(id),
+#             UNIQUE (user_id, course_id) -- A user can enroll in a course only once
+#         )
+#     ''')
+#     conn.commit()
+#     conn.close()
+
+
+# Courses Routes
+
+@app.route('/api/courses', methods=['GET'])
+def get_courses():
+    search = request.args.get('search')
+    category = request.args.get('category')
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        query = 'SELECT id, title, description, category, image_url, price, duration, start_date, created_at FROM courses WHERE 1=1'
+        params = []
+        
+        if search:
+            query += ' AND (title LIKE ? OR description LIKE ?)'
+            params.append(f'%{search}%')
+            params.append(f'%{search}%')
+            
+        if category:
+            query += ' AND category = ?'
+            params.append(category)
+            
+        query += ' ORDER BY created_at DESC'
+        
+        cursor.execute(query, params)
+        
+        courses = []
+        for row in cursor.fetchall():
+            courses.append({
+                'id': row[0],
+                'title': row[1],
+                'description': row[2],
+                'category': row[3],
+                'image_url': row[4],
+                'price': row[5],
+                'duration': row[6],
+                'start_date': row[7],
+                'created_at': row[8]
+            })
+            
+        return jsonify(courses), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/courses/<int:course_id>', methods=['GET'])
+def get_course_detail(course_id):
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('SELECT * FROM courses WHERE id = ?', (course_id,))
+        row = cursor.fetchone()
+        
+        if not row:
+            return jsonify({'error': 'Course not found'}), 404
+            
+        # Get column names
+        col_names = [description[0] for description in cursor.description]
+        course = dict(zip(col_names, row))
+        
+        return jsonify(course), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/courses', methods=['POST'])
+@jwt_required()
+def create_course():
+    user_id = get_user_id_from_jwt()
+    if not is_admin(user_id):
+        return jsonify({'error': 'Admin access required'}), 403
+        
+    data = request.get_json()
+    required_fields = ['title', 'description', 'category']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'error': f'{field} is required'}), 400
+            
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            INSERT INTO courses (title, description, perks, timeline, duration, assignments, category, image_url, price, start_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            data['title'],
+            data['description'],
+            data.get('perks'),
+            data.get('timeline'),
+            data.get('duration'),
+            data.get('assignments'),
+            data['category'],
+            data.get('image_url'),
+            data.get('price'),
+            data.get('start_date')
+        ))
+        
+        course_id = cursor.lastrowid
+        conn.commit()
+        
+        return jsonify({'message': 'Course created successfully', 'id': course_id}), 201
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/courses/<int:course_id>', methods=['PUT'])
+@jwt_required()
+def update_course(course_id):
+    user_id = get_user_id_from_jwt()
+    if not is_admin(user_id):
+        return jsonify({'error': 'Admin access required'}), 403
+        
+    data = request.get_json()
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Check if course exists
+        cursor.execute("SELECT id FROM courses WHERE id = ?", (course_id,))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Course not found'}), 404
+        
+        # Build update query dynamically
+        fields = []
+        values = []
+        allowed_fields = ['title', 'description', 'perks', 'timeline', 'duration', 'assignments', 'category', 'image_url', 'price', 'start_date']
+        
+        for field in allowed_fields:
+            if field in data:
+                fields.append(f"{field} = ?")
+                values.append(data[field])
+        
+        if not fields:
+             return jsonify({'message': 'No changes provided'}), 200
+
+        values.append(course_id)
+        
+        query = f"UPDATE courses SET {', '.join(fields)} WHERE id = ?"
+        cursor.execute(query, values)
+        conn.commit()
+        
+        return jsonify({'message': 'Course updated successfully'}), 200
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/courses/<int:course_id>/enroll', methods=['POST'])
+@jwt_required()
+def enroll_course(course_id):
+    user_id = get_user_id_from_jwt()
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Check if course exists
+        cursor.execute('SELECT id FROM courses WHERE id = ?', (course_id,))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Course not found'}), 404
+            
+        # Check if already enrolled
+        cursor.execute('SELECT id FROM course_enrollments WHERE user_id = ? AND course_id = ?', (user_id, course_id))
+        if cursor.fetchone():
+             return jsonify({'error': 'Already enrolled in this course'}), 400
+
+        cursor.execute('''
+            INSERT INTO course_enrollments (user_id, course_id, status, payment_status)
+            VALUES (?, ?, 'pending', 'paid') 
+        ''', (user_id, course_id))
+        # Note: Assuming payment is successful for the demo mock
+        
+        enrollment_id = cursor.lastrowid
+        conn.commit()
+        
+        return jsonify({'message': 'Enrolled successfully', 'id': enrollment_id}), 201
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/admin/courses', methods=['GET'])
+@jwt_required()
+def get_admin_courses():
+    user_id = get_user_id_from_jwt()
+    if not is_admin(user_id):
+        return jsonify({'error': 'Admin access required'}), 403
+        
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Get courses with enrollment count
+        cursor.execute('''
+            SELECT c.id, c.title, c.category, c.created_at, COUNT(ce.id) as enrollment_count
+            FROM courses c
+            LEFT JOIN course_enrollments ce ON c.id = ce.course_id
+            GROUP BY c.id
+            ORDER BY c.created_at DESC
+        ''')
+        
+        courses = []
+        for row in cursor.fetchall():
+            courses.append({
+                'id': row[0],
+                'title': row[1],
+                'category': row[2],
+                'created_at': row[3],
+                'enrollment_count': row[4]
+            })
+            
+        return jsonify(courses), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/admin/courses/<int:course_id>/students', methods=['GET'])
+@jwt_required()
+def get_course_students(course_id):
+    user_id = get_user_id_from_jwt()
+    if not is_admin(user_id):
+        return jsonify({'error': 'Admin access required'}), 403
+        
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT ce.id, ce.user_id, ce.status, ce.payment_status, ce.enrolled_at,
+                   u.name, u.email, u.avatar
+            FROM course_enrollments ce
+            JOIN users u ON ce.user_id = u.id
+            WHERE ce.course_id = ?
+            ORDER BY ce.enrolled_at DESC
+        ''', (course_id,))
+        
+        students = []
+        for row in cursor.fetchall():
+            students.append({
+                'id': row[0],
+                'user_id': row[1],
+                'status': row[2],
+                'payment_status': row[3],
+                'enrolled_at': row[4],
+                'name': row[5],
+                'email': row[6],
+                'avatar': row[7]
+            })
+            
+        return jsonify(students), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+
+
+# ----------------- Event Routes -----------------
+
+@app.route('/api/events', methods=['GET'])
+def get_events():
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Check if user is logged in to show enrollment status
+        user_id = None
+        auth_header = request.headers.get('Authorization')
+        if auth_header:
+            try:
+                token = auth_header.split(" ")[1]
+                payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=["HS256"])
+                user_id = payload['sub']
+            except:
+                pass
+
+        query = '''
+            SELECT e.id, e.title, e.description, e.type, e.date, e.time, e.location, e.image_url, e.created_at,
+                   (SELECT COUNT(*) FROM event_enrollments WHERE event_id = e.id) as attendee_count,
+                   CASE WHEN ? IS NOT NULL THEN (SELECT 1 FROM event_enrollments WHERE event_id = e.id AND user_id = ?) ELSE 0 END as is_enrolled
+            FROM events e
+            ORDER BY e.date ASC
+        '''
+        cursor.execute(query, (user_id, user_id))
+        
+        events = []
+        for row in cursor.fetchall():
+            events.append({
+                'id': row[0],
+                'title': row[1],
+                'description': row[2],
+                'type': row[3],
+                'date': row[4],
+                'time': row[5],
+                'location': row[6],
+                'image_url': row[7],
+                'created_at': row[8],
+                'attendee_count': row[9],
+                'is_enrolled': bool(row[10])
+            })
+            
+        return jsonify(events), 200
+    except Exception as e:
+        print(f"Error fetching events: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/events', methods=['POST'])
+@jwt_required()
+def create_event():
+    user_id = get_user_id_from_jwt()
+    if not is_admin(user_id):
+        return jsonify({'error': 'Admin access required'}), 403
+        
+    data = request.get_json()
+    required = ['title', 'description', 'type', 'date', 'time']
+    for field in required:
+        if not data.get(field):
+             return jsonify({'error': f'{field} is required'}), 400
+             
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            INSERT INTO events (title, description, type, date, time, location, image_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            data['title'], data['description'], data['type'],
+            data['date'], data['time'], data.get('location'), data.get('image_url')
+        ))
+        conn.commit()
+        return jsonify({'message': 'Event created successfully', 'id': cursor.lastrowid}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/events/<int:event_id>', methods=['PUT'])
+@jwt_required()
+def update_event(event_id):
+    user_id = get_user_id_from_jwt()
+    if not is_admin(user_id):
+        return jsonify({'error': 'Admin access required'}), 403
+        
+    data = request.get_json()
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        fields = []
+        values = []
+        allowed = ['title', 'description', 'type', 'date', 'time', 'location', 'image_url']
+        
+        for field in allowed:
+            if field in data:
+                fields.append(f"{field} = ?")
+                values.append(data[field])
+                
+        if not fields:
+            return jsonify({'message': 'No changes'}), 200
+            
+        values.append(event_id)
+        cursor.execute(f"UPDATE events SET {', '.join(fields)} WHERE id = ?", values)
+        conn.commit()
+        return jsonify({'message': 'Event updated successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/events/<int:event_id>/enroll', methods=['POST'])
+@jwt_required()
+def enroll_event(event_id):
+    user_id = get_user_id_from_jwt()
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Check if already enrolled
+        cursor.execute('SELECT id FROM event_enrollments WHERE user_id = ? AND event_id = ?', (user_id, event_id))
+        if cursor.fetchone():
+            return jsonify({'error': 'Already enrolled'}), 400
+            
+        cursor.execute('INSERT INTO event_enrollments (user_id, event_id) VALUES (?, ?)', (user_id, event_id))
+        conn.commit()
+        return jsonify({'message': 'Enrolled successfully'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/admin/events/<int:event_id>/attendees', methods=['GET'])
+@jwt_required()
+def get_event_attendees(event_id):
+    user_id = get_user_id_from_jwt()
+    if not is_admin(user_id):
+        return jsonify({'error': 'Admin access required'}), 403
+        
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT u.id, u.name, u.email, u.avatar, ee.enrolled_at
+            FROM event_enrollments ee
+            JOIN users u ON ee.user_id = u.id
+            WHERE ee.event_id = ?
+            ORDER BY ee.enrolled_at DESC
+        ''', (event_id,))
+        
+        attendees = []
+        for row in cursor.fetchall():
+            attendees.append({
+                'id': row[0],
+                'name': row[1],
+                'email': row[2],
+                'avatar': row[3],
+                'enrolled_at': row[4]
+            })
+            
+        return jsonify(attendees), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/events/<int:event_id>', methods=['DELETE'])
+@jwt_required()
+def delete_event(event_id):
+    user_id = get_user_id_from_jwt()
+    if not is_admin(user_id):
+        return jsonify({'error': 'Admin access required'}), 403
+        
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Delete enrollments first
+        cursor.execute('DELETE FROM event_enrollments WHERE event_id = ?', (event_id,))
+        # Delete event
+        cursor.execute('DELETE FROM events WHERE id = ?', (event_id,))
+        conn.commit()
+        return jsonify({'message': 'Event deleted successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
 
 if __name__ == '__main__':
     init_db()
