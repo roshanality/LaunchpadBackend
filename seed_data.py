@@ -29,13 +29,14 @@ def seed_database():
     cursor.execute('DELETE FROM course_enrollments')
     cursor.execute('DELETE FROM events')
     cursor.execute('DELETE FROM event_enrollments')
+    cursor.execute('DELETE FROM site_stats')
 
     # ----------------- Admin User -----------------
     admin_password = generate_password_hash('IITKGP2026')
     cursor.execute('''
-        INSERT INTO users (name, email, password_hash, role, is_approved)
-        VALUES (?, ?, ?, ?, ?)
-    ''', ('Admin', 'Admin@kgplaunchpad.in', admin_password, 'admin', True))
+        INSERT INTO users (name, email, password_hash, role, is_approved, is_blocked)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', ('Admin', 'Admin@kgplaunchpad.in', admin_password, 'admin', True, False))
     print("✓ Admin user created")
     
     # ----------------- Users with Complete Profiles -----------------
@@ -46,6 +47,7 @@ def seed_database():
             'email': 'rajesh.kumar@iitkgp.ac.in',
             'password': 'password123',
             'role': 'alumni',
+            'alumni_type': 'Founder',
             'graduation_year': 2010,
             'department': 'Computer Science and Engineering',
             'hall': 'Nehru Hall',
@@ -73,6 +75,7 @@ def seed_database():
             'email': 'priya.sharma@iitkgp.ac.in',
             'password': 'password123',
             'role': 'alumni',
+            'alumni_type': 'Working Professional',
             'graduation_year': 2012,
             'department': 'Electrical Engineering',
             'hall': 'Sarojini Naidu Hall',
@@ -100,6 +103,7 @@ def seed_database():
             'email': 'amit.singh@iitkgp.ac.in',
             'password': 'password123',
             'role': 'alumni',
+            'alumni_type': 'Founder',
             'graduation_year': 2015,
             'department': 'Mechanical Engineering',
             'hall': 'Patel Hall',
@@ -382,8 +386,8 @@ def seed_database():
             INSERT INTO users (name, email, password_hash, role, graduation_year, department, hall, branch, bio,
                                current_company, current_position, location, work_preference, phone, website,
                                linkedin, github, avatar, years_of_experience, domain, tech_skills, program,
-                               joining_year, institute, specialization, past_projects, is_available)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               joining_year, institute, specialization, past_projects, is_available, alumni_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (user['name'], user['email'], password_hash, user['role'], user['graduation_year'], 
               user['department'], user.get('hall'), user.get('branch'), user.get('bio'),
               user.get('current_company'), user.get('current_position'), user.get('location'),
@@ -392,7 +396,8 @@ def seed_database():
               user.get('years_of_experience'), user.get('domain'), user.get('tech_skills'),
               user.get('program'), user.get('joining_year'), user.get('institute'),
               user.get('specialization'), user.get('past_projects'), 
-              1 if user['role'] == 'alumni' else None))
+              1 if user['role'] == 'alumni' else None,
+              user.get('alumni_type')))
         user_ids[user['email']] = cursor.lastrowid
 
     # ----------------- User Skills -----------------
