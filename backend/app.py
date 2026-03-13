@@ -1,8 +1,8 @@
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
-from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
+from flask import Flask, request, jsonify, send_from_directory  # type: ignore
+from flask_cors import CORS  # type: ignore
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity  # type: ignore
+from werkzeug.security import generate_password_hash, check_password_hash  # type: ignore
+from werkzeug.utils import secure_filename  # type: ignore
 import sqlite3
 import os
 import json
@@ -718,6 +718,71 @@ def init_db():
         )
     ''')
 
+    # LaunchDeck - Pitches table (founder startup pitch data)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS pitches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            founder_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            tagline TEXT,
+            logo TEXT,
+            pitch_overview TEXT,
+            highlights TEXT,
+            team_members TEXT,
+            pitch_deck_images TEXT,
+            category TEXT,
+            website TEXT,
+            social_links TEXT,
+            status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'closed')),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (founder_id) REFERENCES users (id)
+        )
+    ''')
+
+    # LaunchDeck - Pitch Interests table (investor interest submissions)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS pitch_interests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pitch_id INTEGER NOT NULL,
+            investor_id INTEGER NOT NULL,
+            message TEXT,
+            status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'admin_notified', 'meeting_setup')),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (pitch_id) REFERENCES pitches (id),
+            FOREIGN KEY (investor_id) REFERENCES users (id),
+            UNIQUE(pitch_id, investor_id)
+        )
+    ''')
+
+    # LaunchDeck - Mentorship Requests table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS launchdeck_mentorship_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pitch_id INTEGER NOT NULL,
+            founder_id INTEGER NOT NULL,
+            mentor_id INTEGER,
+            message TEXT,
+            status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'assigned')),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (pitch_id) REFERENCES pitches (id),
+            FOREIGN KEY (founder_id) REFERENCES users (id),
+            FOREIGN KEY (mentor_id) REFERENCES users (id)
+        )
+    ''')
+
+    # LaunchDeck - Admin Notifications table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admin_notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT NOT NULL,
+            reference_id INTEGER,
+            message TEXT NOT NULL,
+            is_read BOOLEAN DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -1219,17 +1284,17 @@ def admin_update_timeline_item(item_id):
     user_id = get_user_id_from_jwt()
     if not is_admin(user_id):
         return jsonify({'error': 'Admin access required'}), 403
-    data = request.get_json() or {}
+    data: dict = request.get_json() or {}
     db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     try:
         updates = []
-        params = []
+        params: list = []
         for key in ('title', 'description', 'date', 'image', 'status', 'category', 'sort_order'):
-            if key in data:
+            if key in data:  # type: ignore
                 updates.append(f'{key} = ?')
-                params.append(data[key])
+                params.append(data[key])  # type: ignore
         if not updates:
             return jsonify({'error': 'No fields to update'}), 400
         params.append(item_id)
@@ -1552,7 +1617,7 @@ def update_student_verification():
             roll_number = data.get('roll_number')
 
         updates = []
-        params = []
+        params: list = []
         if roll_number is not None:
             updates.append('roll_number = ?')
             params.append(roll_number)
@@ -2233,7 +2298,7 @@ def send_support_message():
 # Protected routes
 @app.route('/api/projects', methods=['GET'])
 def get_projects():
-    from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+    from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity  # type: ignore
     
     conn = sqlite3.connect('launchpad.db')
     cursor = conn.cursor()
@@ -2371,14 +2436,14 @@ def get_recommended_projects():
             description = row[2].lower()
             category = row[3].lower()
             
-            score = 0
-            matched_skills = []
+            score: int = 0
+            matched_skills: list = []
             
             # Match skills (highest weight)
             for skill in user_skills:
                 for req_skill in skills_required:
                     if skill in req_skill.lower() or req_skill.lower() in skill:
-                        score += 10
+                        score += 10  # type: ignore
                         matched_skills.append(req_skill)
                         break
             
@@ -2386,24 +2451,24 @@ def get_recommended_projects():
             for skill in user_skills:
                 for tag in tags:
                     if skill in tag.lower() or tag.lower() in skill:
-                        score += 5
+                        score += 5  # type: ignore
                         break
             
             # Match keywords in title and description
             for keyword in user_keywords:
                 if keyword in title:
-                    score += 3
+                    score += 3  # type: ignore
                 if keyword in description:
-                    score += 2
+                    score += 2  # type: ignore
                 if keyword in category:
-                    score += 3
+                    score += 3  # type: ignore
             
             # Match skills in title/description
             for skill in user_skills:
                 if skill in title:
-                    score += 4
+                    score += 4  # type: ignore
                 if skill in description:
-                    score += 2
+                    score += 2  # type: ignore
             
             # Only include projects with some relevance
             if score > 0:
@@ -3349,7 +3414,7 @@ def get_project_detail(project_id):
         ''', (project_id,))
         
         positions_data = cursor.fetchall()
-        positions_dict = {}
+        positions_dict: dict = {}
         
         for pos_data in positions_data:
             pos_id = pos_data[0]
@@ -3370,7 +3435,8 @@ def get_project_detail(project_id):
             
             # Add selected student if exists
             if pos_data[7]:  # selected_student_id
-                positions_dict[pos_id]['selected_students'].append({
+                selected_list: list = positions_dict[pos_id]['selected_students']
+                selected_list.append({
                     'id': pos_data[7],
                     'name': pos_data[8],
                     'email': pos_data[9]
@@ -6210,6 +6276,749 @@ def toggle_block_user(user_id):
         
         action = 'blocked' if should_block else 'unblocked'
         return jsonify({'message': f'User {action} successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+# =============================================
+# LAUNCHDECK API ROUTES
+# =============================================
+
+# --- LaunchDeck Pitch Image Upload ---
+@app.route('/api/launchdeck/upload/pitch-image', methods=['POST'])
+@jwt_required()
+def upload_pitch_image():
+    current_user_id = get_user_id_from_jwt()
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    allowed = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+    ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+    if ext not in allowed:
+        return jsonify({'error': 'Invalid file type'}), 400
+    
+    filename = f"pitch_{uuid.uuid4().hex}.{ext}"
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+    
+    return jsonify({'filename': filename}), 200
+
+# --- LaunchDeck Pitches CRUD ---
+
+@app.route('/api/launchdeck/pitches', methods=['GET'])
+def get_pitches():
+    category = request.args.get('category')
+    search = request.args.get('search')
+    status = request.args.get('status', 'published')
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        query = '''
+            SELECT p.id, p.title, p.tagline, p.logo, p.category, p.status, p.created_at,
+                   u.name as founder_name, u.avatar as founder_avatar, p.pitch_overview,
+                   p.pitch_deck_images
+            FROM pitches p
+            JOIN users u ON p.founder_id = u.id
+            WHERE p.status = ?
+        '''
+        params = [status]
+        
+        if category:
+            query += ' AND p.category = ?'
+            params.append(category)
+        
+        if search:
+            query += ' AND (p.title LIKE ? OR p.tagline LIKE ? OR p.pitch_overview LIKE ?)'
+            params.extend([f'%{search}%', f'%{search}%', f'%{search}%'])
+        
+        query += ' ORDER BY p.created_at DESC'
+        cursor.execute(query, params)
+        
+        pitches = []
+        for row in cursor.fetchall():
+            pitch_deck_images = []
+            if row[10]:
+                try:
+                    pitch_deck_images = json.loads(row[10])
+                except:
+                    pass
+            pitches.append({
+                'id': row[0],
+                'title': row[1],
+                'tagline': row[2],
+                'logo': row[3],
+                'category': row[4],
+                'status': row[5],
+                'created_at': row[6],
+                'founder_name': row[7],
+                'founder_avatar': row[8],
+                'pitch_overview': row[9],
+                'pitch_deck_images': pitch_deck_images
+            })
+        
+        return jsonify(pitches), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchdeck/pitches/<int:pitch_id>', methods=['GET'])
+def get_pitch_detail(pitch_id):
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT p.id, p.founder_id, p.title, p.tagline, p.logo, p.pitch_overview,
+                   p.highlights, p.team_members, p.pitch_deck_images, p.category,
+                   p.website, p.social_links, p.status, p.created_at, p.updated_at,
+                   u.name as founder_name, u.avatar as founder_avatar, u.email as founder_email
+            FROM pitches p
+            JOIN users u ON p.founder_id = u.id
+            WHERE p.id = ?
+        ''', (pitch_id,))
+        
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Pitch not found'}), 404
+        
+        # Parse JSON fields
+        highlights = []
+        team_members = []
+        pitch_deck_images = []
+        social_links = {}
+        
+        if row[6]:
+            try: highlights = json.loads(row[6])
+            except: pass
+        if row[7]:
+            try: team_members = json.loads(row[7])
+            except: pass
+        if row[8]:
+            try: pitch_deck_images = json.loads(row[8])
+            except: pass
+        if row[11]:
+            try: social_links = json.loads(row[11])
+            except: pass
+        
+        # Count interests
+        cursor.execute('SELECT COUNT(*) FROM pitch_interests WHERE pitch_id = ?', (pitch_id,))
+        interest_count = cursor.fetchone()[0]
+        
+        pitch = {
+            'id': row[0],
+            'founder_id': row[1],
+            'title': row[2],
+            'tagline': row[3],
+            'logo': row[4],
+            'pitch_overview': row[5],
+            'highlights': highlights,
+            'team_members': team_members,
+            'pitch_deck_images': pitch_deck_images,
+            'category': row[9],
+            'website': row[10],
+            'social_links': social_links,
+            'status': row[12],
+            'created_at': row[13],
+            'updated_at': row[14],
+            'founder_name': row[15],
+            'founder_avatar': row[16],
+            'founder_email': row[17],
+            'interest_count': interest_count
+        }
+        
+        return jsonify(pitch), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchdeck/pitches', methods=['POST'])
+@jwt_required()
+def create_pitch():
+    current_user_id = get_user_id_from_jwt()
+    data = request.json
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Verify user is a Founder
+        cursor.execute('SELECT alumni_type FROM users WHERE id = ?', (current_user_id,))
+        user = cursor.fetchone()
+        if not user or user[0] != 'Founder':
+            return jsonify({'error': 'Only founders can create pitches'}), 403
+        
+        highlights = json.dumps(data.get('highlights', []))
+        team_members = json.dumps(data.get('team_members', []))
+        pitch_deck_images = json.dumps(data.get('pitch_deck_images', []))
+        social_links = json.dumps(data.get('social_links', {}))
+        
+        cursor.execute('''
+            INSERT INTO pitches (founder_id, title, tagline, logo, pitch_overview, highlights,
+                                 team_members, pitch_deck_images, category, website, social_links, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            current_user_id,
+            data.get('title', ''),
+            data.get('tagline', ''),
+            data.get('logo', ''),
+            data.get('pitch_overview', ''),
+            highlights,
+            team_members,
+            pitch_deck_images,
+            data.get('category', ''),
+            data.get('website', ''),
+            social_links,
+            data.get('status', 'draft')
+        ))
+        
+        conn.commit()
+        pitch_id = cursor.lastrowid
+        
+        return jsonify({'message': 'Pitch created successfully', 'id': pitch_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchdeck/pitches/<int:pitch_id>', methods=['PUT'])
+@jwt_required()
+def update_pitch(pitch_id):
+    current_user_id = get_user_id_from_jwt()
+    data = request.json
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Verify ownership
+        cursor.execute('SELECT founder_id FROM pitches WHERE id = ?', (pitch_id,))
+        pitch = cursor.fetchone()
+        if not pitch:
+            return jsonify({'error': 'Pitch not found'}), 404
+        if pitch[0] != current_user_id and not is_admin(current_user_id):
+            return jsonify({'error': 'Unauthorized'}), 403
+        
+        highlights = json.dumps(data.get('highlights', []))
+        team_members = json.dumps(data.get('team_members', []))
+        pitch_deck_images = json.dumps(data.get('pitch_deck_images', []))
+        social_links = json.dumps(data.get('social_links', {}))
+        
+        cursor.execute('''
+            UPDATE pitches SET title=?, tagline=?, logo=?, pitch_overview=?, highlights=?,
+                   team_members=?, pitch_deck_images=?, category=?, website=?, social_links=?,
+                   status=?, updated_at=CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (
+            data.get('title', ''),
+            data.get('tagline', ''),
+            data.get('logo', ''),
+            data.get('pitch_overview', ''),
+            highlights,
+            team_members,
+            pitch_deck_images,
+            data.get('category', ''),
+            data.get('website', ''),
+            social_links,
+            data.get('status', 'draft'),
+            pitch_id
+        ))
+        
+        conn.commit()
+        return jsonify({'message': 'Pitch updated successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchdeck/pitches/<int:pitch_id>', methods=['DELETE'])
+@jwt_required()
+def delete_pitch(pitch_id):
+    current_user_id = get_user_id_from_jwt()
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('SELECT founder_id FROM pitches WHERE id = ?', (pitch_id,))
+        pitch = cursor.fetchone()
+        if not pitch:
+            return jsonify({'error': 'Pitch not found'}), 404
+        if pitch[0] != current_user_id and not is_admin(current_user_id):
+            return jsonify({'error': 'Unauthorized'}), 403
+        
+        cursor.execute('DELETE FROM pitch_interests WHERE pitch_id = ?', (pitch_id,))
+        cursor.execute('DELETE FROM launchdeck_mentorship_requests WHERE pitch_id = ?', (pitch_id,))
+        cursor.execute('DELETE FROM pitches WHERE id = ?', (pitch_id,))
+        conn.commit()
+        
+        return jsonify({'message': 'Pitch deleted successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchdeck/my-pitches', methods=['GET'])
+@jwt_required()
+def get_my_pitches():
+    current_user_id = get_user_id_from_jwt()
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT p.id, p.title, p.tagline, p.logo, p.category, p.status, p.created_at,
+                   (SELECT COUNT(*) FROM pitch_interests WHERE pitch_id = p.id) as interest_count,
+                   (SELECT COUNT(*) FROM launchdeck_mentorship_requests WHERE pitch_id = p.id) as mentorship_count
+            FROM pitches p
+            WHERE p.founder_id = ?
+            ORDER BY p.created_at DESC
+        ''', (current_user_id,))
+        
+        pitches = []
+        for row in cursor.fetchall():
+            pitches.append({
+                'id': row[0],
+                'title': row[1],
+                'tagline': row[2],
+                'logo': row[3],
+                'category': row[4],
+                'status': row[5],
+                'created_at': row[6],
+                'interest_count': row[7],
+                'mentorship_count': row[8]
+            })
+        
+        return jsonify(pitches), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+# --- LaunchDeck Investor Interest ---
+
+@app.route('/api/launchdeck/pitches/<int:pitch_id>/interest', methods=['POST'])
+@jwt_required()
+def submit_interest(pitch_id):
+    current_user_id = get_user_id_from_jwt()
+    data = request.json or {}
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Verify pitch exists
+        cursor.execute('SELECT title, founder_id FROM pitches WHERE id = ? AND status = ?', (pitch_id, 'published'))
+        pitch = cursor.fetchone()
+        if not pitch:
+            return jsonify({'error': 'Pitch not found or not published'}), 404
+        
+        # Check if already submitted interest
+        cursor.execute('SELECT id FROM pitch_interests WHERE pitch_id = ? AND investor_id = ?', (pitch_id, current_user_id))
+        if cursor.fetchone():
+            return jsonify({'error': 'You have already expressed interest in this pitch'}), 400
+        
+        cursor.execute('''
+            INSERT INTO pitch_interests (pitch_id, investor_id, message, status)
+            VALUES (?, ?, ?, 'pending')
+        ''', (pitch_id, current_user_id, data.get('message', '')))
+        
+        # Create admin notification
+        cursor.execute('SELECT name FROM users WHERE id = ?', (current_user_id,))
+        investor_name = cursor.fetchone()[0]
+        
+        cursor.execute('''
+            INSERT INTO admin_notifications (type, reference_id, message)
+            VALUES (?, ?, ?)
+        ''', ('interest_request', pitch_id, f'{investor_name} expressed interest in "{pitch[0]}"'))
+        
+        conn.commit()
+        return jsonify({'message': 'Interest submitted successfully'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchdeck/pitches/<int:pitch_id>/interest/check', methods=['GET'])
+@jwt_required()
+def check_interest(pitch_id):
+    current_user_id = get_user_id_from_jwt()
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('SELECT id, status FROM pitch_interests WHERE pitch_id = ? AND investor_id = ?', (pitch_id, current_user_id))
+        row = cursor.fetchone()
+        if row:
+            return jsonify({'has_interest': True, 'status': row[1]}), 200
+        return jsonify({'has_interest': False}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+# --- LaunchDeck Mentorship ---
+
+@app.route('/api/launchdeck/mentorship/request', methods=['POST'])
+@jwt_required()
+def launchdeck_request_mentorship():
+    current_user_id = get_user_id_from_jwt()
+    data = request.json
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        pitch_id = data.get('pitch_id')
+        if not pitch_id:
+            return jsonify({'error': 'pitch_id is required'}), 400
+        
+        # Verify pitch belongs to this founder
+        cursor.execute('SELECT title FROM pitches WHERE id = ? AND founder_id = ?', (pitch_id, current_user_id))
+        pitch = cursor.fetchone()
+        if not pitch:
+            return jsonify({'error': 'Pitch not found or not yours'}), 404
+        
+        # Check if already requested
+        cursor.execute('SELECT id FROM launchdeck_mentorship_requests WHERE pitch_id = ? AND founder_id = ?', (pitch_id, current_user_id))
+        if cursor.fetchone():
+            return jsonify({'error': 'Mentorship already requested for this pitch'}), 400
+        
+        cursor.execute('''
+            INSERT INTO launchdeck_mentorship_requests (pitch_id, founder_id, message, status)
+            VALUES (?, ?, ?, 'pending')
+        ''', (pitch_id, current_user_id, data.get('message', '')))
+        
+        # Create admin notification
+        cursor.execute('SELECT name FROM users WHERE id = ?', (current_user_id,))
+        founder_name = cursor.fetchone()[0]
+        
+        cursor.execute('''
+            INSERT INTO admin_notifications (type, reference_id, message)
+            VALUES (?, ?, ?)
+        ''', ('mentorship_request', pitch_id, f'{founder_name} requested mentorship for "{pitch[0]}"'))
+        
+        conn.commit()
+        return jsonify({'message': 'Mentorship request submitted successfully'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchdeck/mentorship/requests', methods=['GET'])
+@jwt_required()
+def launchdeck_get_mentorship_requests():
+    current_user_id = get_user_id_from_jwt()
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Check if user is mentor - show requests assigned to them or pending (for all mentors)
+        cursor.execute('SELECT alumni_type FROM users WHERE id = ?', (current_user_id,))
+        user = cursor.fetchone()
+        
+        if user and user[0] == 'Mentor':
+            cursor.execute('''
+                SELECT mr.id, mr.pitch_id, mr.founder_id, mr.mentor_id, mr.message, mr.status, mr.created_at,
+                       p.title as pitch_title, p.tagline, p.logo, p.category,
+                       u.name as founder_name, u.avatar as founder_avatar
+                FROM launchdeck_mentorship_requests mr
+                JOIN pitches p ON mr.pitch_id = p.id
+                JOIN users u ON mr.founder_id = u.id
+                WHERE mr.mentor_id = ? OR (mr.mentor_id IS NULL AND mr.status = 'pending')
+                ORDER BY mr.created_at DESC
+            ''', (current_user_id,))
+        elif is_admin(current_user_id):
+            cursor.execute('''
+                SELECT mr.id, mr.pitch_id, mr.founder_id, mr.mentor_id, mr.message, mr.status, mr.created_at,
+                       p.title as pitch_title, p.tagline, p.logo, p.category,
+                       u.name as founder_name, u.avatar as founder_avatar
+                FROM launchdeck_mentorship_requests mr
+                JOIN pitches p ON mr.pitch_id = p.id
+                JOIN users u ON mr.founder_id = u.id
+                ORDER BY mr.created_at DESC
+            ''')
+        else:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        requests_list = []
+        for row in cursor.fetchall():
+            mentor_name = None
+            if row[3]:
+                cursor.execute('SELECT name FROM users WHERE id = ?', (row[3],))
+                m = cursor.fetchone()
+                if m:
+                    mentor_name = m[0]
+            
+            requests_list.append({
+                'id': row[0],
+                'pitch_id': row[1],
+                'founder_id': row[2],
+                'mentor_id': row[3],
+                'message': row[4],
+                'status': row[5],
+                'created_at': row[6],
+                'pitch_title': row[7],
+                'pitch_tagline': row[8],
+                'pitch_logo': row[9],
+                'pitch_category': row[10],
+                'founder_name': row[11],
+                'founder_avatar': row[12],
+                'mentor_name': mentor_name
+            })
+        
+        return jsonify(requests_list), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchdeck/mentorship/requests/<int:request_id>', methods=['PUT'])
+@jwt_required()
+def launchdeck_update_mentorship_request(request_id):
+    current_user_id = get_user_id_from_jwt()
+    data = request.json
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        new_status = data.get('status')
+        if new_status not in ('accepted', 'declined'):
+            return jsonify({'error': 'Status must be accepted or declined'}), 400
+        
+        # Verify mentor
+        cursor.execute('SELECT mentor_id, pitch_id FROM launchdeck_mentorship_requests WHERE id = ?', (request_id,))
+        req = cursor.fetchone()
+        if not req:
+            return jsonify({'error': 'Request not found'}), 404
+        
+        if req[0] != current_user_id and not is_admin(current_user_id):
+            return jsonify({'error': 'Unauthorized'}), 403
+        
+        cursor.execute('UPDATE launchdeck_mentorship_requests SET status = ? WHERE id = ?', (new_status, request_id))
+        conn.commit()
+        
+        return jsonify({'message': f'Mentorship request {new_status}'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+# --- LaunchDeck Admin ---
+
+@app.route('/api/launchdeck/admin/notifications', methods=['GET'])
+@jwt_required()
+def get_launchdeck_notifications():
+    current_user_id = get_user_id_from_jwt()
+    if not is_admin(current_user_id):
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT id, type, reference_id, message, is_read, created_at
+            FROM admin_notifications
+            ORDER BY created_at DESC
+            LIMIT 50
+        ''')
+        
+        notifications = []
+        for row in cursor.fetchall():
+            notifications.append({
+                'id': row[0],
+                'type': row[1],
+                'reference_id': row[2],
+                'message': row[3],
+                'is_read': bool(row[4]),
+                'created_at': row[5]
+            })
+        
+        return jsonify(notifications), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchdeck/admin/notifications/<int:notif_id>/read', methods=['PUT'])
+@jwt_required()
+def mark_notification_read(notif_id):
+    current_user_id = get_user_id_from_jwt()
+    if not is_admin(current_user_id):
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('UPDATE admin_notifications SET is_read = 1 WHERE id = ?', (notif_id,))
+        conn.commit()
+        return jsonify({'message': 'Notification marked as read'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchdeck/admin/assign-mentor', methods=['POST'])
+@jwt_required()
+def assign_mentor():
+    current_user_id = get_user_id_from_jwt()
+    if not is_admin(current_user_id):
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    data = request.json
+    request_id = data.get('request_id')
+    mentor_id = data.get('mentor_id')
+    
+    if not request_id or not mentor_id:
+        return jsonify({'error': 'request_id and mentor_id are required'}), 400
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        # Verify mentor exists and is a Mentor type
+        cursor.execute('SELECT alumni_type FROM users WHERE id = ?', (mentor_id,))
+        mentor = cursor.fetchone()
+        if not mentor or mentor[0] != 'Mentor':
+            return jsonify({'error': 'Selected user is not a mentor'}), 400
+        
+        cursor.execute('''
+            UPDATE launchdeck_mentorship_requests SET mentor_id = ?, status = 'assigned'
+            WHERE id = ?
+        ''', (mentor_id, request_id))
+        
+        conn.commit()
+        return jsonify({'message': 'Mentor assigned successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchdeck/mentors', methods=['GET'])
+def get_launchdeck_mentors():
+    """Get list of all mentors for admin assignment dropdown"""
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT id, name, avatar, department, bio
+            FROM users
+            WHERE alumni_type = 'Mentor' AND is_blocked = 0
+            ORDER BY name
+        ''')
+        
+        mentors = []
+        for row in cursor.fetchall():
+            mentors.append({
+                'id': row[0],
+                'name': row[1],
+                'avatar': row[2],
+                'department': row[3],
+                'bio': row[4]
+            })
+        
+        return jsonify(mentors), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchdeck/admin/interests', methods=['GET'])
+@jwt_required()
+def get_all_interests():
+    """Admin: get all pitch interests"""
+    current_user_id = get_user_id_from_jwt()
+    if not is_admin(current_user_id):
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT pi.id, pi.pitch_id, pi.investor_id, pi.message, pi.status, pi.created_at,
+                   p.title as pitch_title,
+                   u.name as investor_name, u.email as investor_email, u.avatar as investor_avatar
+            FROM pitch_interests pi
+            JOIN pitches p ON pi.pitch_id = p.id
+            JOIN users u ON pi.investor_id = u.id
+            ORDER BY pi.created_at DESC
+        ''')
+        
+        interests = []
+        for row in cursor.fetchall():
+            interests.append({
+                'id': row[0],
+                'pitch_id': row[1],
+                'investor_id': row[2],
+                'message': row[3],
+                'status': row[4],
+                'created_at': row[5],
+                'pitch_title': row[6],
+                'investor_name': row[7],
+                'investor_email': row[8],
+                'investor_avatar': row[9]
+            })
+        
+        return jsonify(interests), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/launchdeck/admin/interests/<int:interest_id>/status', methods=['PUT'])
+@jwt_required()
+def update_interest_status(interest_id):
+    """Admin: update interest status (e.g., set meeting)"""
+    current_user_id = get_user_id_from_jwt()
+    if not is_admin(current_user_id):
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    data = request.json
+    new_status = data.get('status')
+    if new_status not in ('pending', 'admin_notified', 'meeting_setup'):
+        return jsonify({'error': 'Invalid status'}), 400
+    
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('UPDATE pitch_interests SET status = ? WHERE id = ?', (new_status, interest_id))
+        conn.commit()
+        return jsonify({'message': f'Interest status updated to {new_status}'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:

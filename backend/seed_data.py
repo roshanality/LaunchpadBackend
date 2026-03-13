@@ -1,9 +1,9 @@
 import sqlite3
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash  # type: ignore
 from datetime import datetime, timedelta
 import json
 import random
-from app import init_db
+from app import init_db  # type: ignore
 
 def seed_database():
     # Initialize database tables first
@@ -34,6 +34,14 @@ def seed_database():
     cursor.execute('DELETE FROM service_timeline_items')
     cursor.execute('DELETE FROM service_requests')
     cursor.execute('DELETE FROM services')
+    # Clear LaunchDeck tables
+    try:
+        cursor.execute('DELETE FROM pitches')
+        cursor.execute('DELETE FROM pitch_interests')
+        cursor.execute('DELETE FROM launchdeck_mentorship_requests')
+        cursor.execute('DELETE FROM admin_notifications')
+    except Exception:
+        pass  # Tables may not exist yet
 
     # ----------------- Admin User -----------------
     admin_password = generate_password_hash('IITKGP2026', method='pbkdf2:sha256')
@@ -44,8 +52,9 @@ def seed_database():
     print("✓ Admin user created")
     
     # ----------------- Users with Complete Profiles -----------------
+    # DISTRIBUTION: 5 Students, 4 Founders, 3 Investors, 3 Mentors
     users = [
-        # Alumni with complete profiles
+        # ====== FOUNDERS (4) — alumni with alumni_type='Founder' ======
         {
             'name': 'Dr. Rajesh Kumar',
             'email': 'rajesh.kumar@iitkgp.ac.in',
@@ -56,51 +65,23 @@ def seed_database():
             'department': 'Computer Science and Engineering',
             'hall': 'Nehru Hall',
             'branch': 'B.Tech CSE',
-            'bio': 'Healthcare AI entrepreneur and researcher with 13+ years of experience. Founded MediAI Solutions, a $50M healthcare diagnostics startup. Passionate about using ML to solve real-world healthcare problems.',
-            'current_company': 'MediAI Solutions',
-            'current_position': 'Founder & CEO',
+            'bio': 'AI researcher turned entrepreneur. Founded NeuralMesh AI to democratize machine learning for SMBs. Ex-Google AI, Stanford PhD. Passionate about using ML to solve real-world problems.',
+            'current_company': 'NeuralMesh AI',
+            'current_position': 'CEO & Founder',
             'location': 'Bangalore, Karnataka',
-            'work_preference': 'hybrid',
+            'work_preference': 'remote',
             'phone': '+91-9876543210',
-            'website': 'https://mediaisolutions.com',
+            'website': 'https://neuralmesh.ai',
             'linkedin': 'https://linkedin.com/in/rajeshkumar',
             'github': 'https://github.com/rajeshkumar',
             'avatar': 'https://randomuser.me/api/portraits/men/1.jpg',
-            'years_of_experience': 13,
-            'domain': 'Healthcare AI, Machine Learning',
+            'years_of_experience': 14,
+            'domain': 'AI/ML, Machine Learning',
             'tech_skills': json.dumps(['Python', 'TensorFlow', 'PyTorch', 'Computer Vision', 'AWS', 'Docker']),
             'program': 'B.Tech',
             'joining_year': 2006,
             'institute': 'IIT Kharagpur',
             'specialization': 'Artificial Intelligence and Machine Learning'
-        },
-        {
-            'name': 'Priya Sharma',
-            'email': 'priya.sharma@iitkgp.ac.in',
-            'password': 'password123',
-            'role': 'alumni',
-            'alumni_type': 'Working Professional',
-            'graduation_year': 2012,
-            'department': 'Electrical Engineering',
-            'hall': 'Sarojini Naidu Hall',
-            'branch': 'B.Tech EE',
-            'bio': 'Clean energy advocate and IoT specialist. Leading sustainable energy projects across India. Former Tesla engineer, now building smart grid solutions for rural electrification.',
-            'current_company': 'GreenGrid Technologies',
-            'current_position': 'VP Engineering',
-            'location': 'Pune, Maharashtra',
-            'work_preference': 'remote',
-            'phone': '+91-9876543211',
-            'website': 'https://greengridtech.com',
-            'linkedin': 'https://linkedin.com/in/priyasharma',
-            'github': 'https://github.com/priyasharma',
-            'avatar': 'https://randomuser.me/api/portraits/women/2.jpg',
-            'years_of_experience': 11,
-            'domain': 'IoT, Renewable Energy, Smart Grid',
-            'tech_skills': json.dumps(['IoT', 'Embedded Systems', 'Python', 'MQTT', 'Node.js', 'React']),
-            'program': 'B.Tech',
-            'joining_year': 2008,
-            'institute': 'IIT Kharagpur',
-            'specialization': 'Power Electronics and Drives'
         },
         {
             'name': 'Amit Singh',
@@ -112,90 +93,209 @@ def seed_database():
             'department': 'Mechanical Engineering',
             'hall': 'Patel Hall',
             'branch': 'B.Tech ME',
-            'bio': 'Robotics engineer and entrepreneur. Built EdTech platform serving 2M+ students. Currently working on autonomous manufacturing systems. IIT KGP robotics team captain.',
-            'current_company': 'RoboLearn Inc',
-            'current_position': 'CTO',
+            'bio': 'Cleantech founder building GreenHarvest to bring AI-powered precision agriculture to Indian farmers. Forbes 30 Under 30 Asia. Previously at RoboLearn Inc.',
+            'current_company': 'GreenHarvest AgriTech',
+            'current_position': 'Co-founder & CTO',
             'location': 'Hyderabad, Telangana',
-            'work_preference': 'onsite',
+            'work_preference': 'hybrid',
             'phone': '+91-9876543212',
-            'website': 'https://robolearn.io',
+            'website': 'https://greenharvest.in',
             'linkedin': 'https://linkedin.com/in/amitsingh',
             'github': 'https://github.com/amitsingh',
             'avatar': 'https://randomuser.me/api/portraits/men/3.jpg',
-            'years_of_experience': 8,
-            'domain': 'Robotics, Automation, EdTech',
-            'tech_skills': json.dumps(['ROS', 'Python', 'C++', 'Computer Vision', 'React', 'Node.js']),
+            'years_of_experience': 9,
+            'domain': 'AgriTech, Robotics, Automation',
+            'tech_skills': json.dumps(['ROS', 'Python', 'C++', 'Computer Vision', 'IoT', 'Edge Computing']),
             'program': 'B.Tech',
             'joining_year': 2011,
             'institute': 'IIT Kharagpur',
             'specialization': 'Manufacturing and Automation'
         },
         {
+            'name': 'Riya Chakraborty',
+            'email': 'riya.chakraborty@iitkgp.ac.in',
+            'password': 'password123',
+            'role': 'alumni',
+            'alumni_type': 'Founder',
+            'graduation_year': 2016,
+            'department': 'Electronics and Electrical Communication',
+            'hall': 'Sarojini Naidu Hall',
+            'branch': 'B.Tech ETC',
+            'bio': 'EdTech innovator. Founded EduVerse to create immersive virtual campus experiences. Previously at Microsoft Research. Building the future of education with AR/VR.',
+            'current_company': 'EduVerse Technologies',
+            'current_position': 'Founder & CEO',
+            'location': 'Mumbai, Maharashtra',
+            'work_preference': 'remote',
+            'phone': '+91-9876543230',
+            'website': 'https://eduverse.tech',
+            'linkedin': 'https://linkedin.com/in/riyachakraborty',
+            'github': 'https://github.com/riyachakraborty',
+            'avatar': 'https://randomuser.me/api/portraits/women/13.jpg',
+            'years_of_experience': 10,
+            'domain': 'EdTech, AR/VR',
+            'tech_skills': json.dumps(['AR/VR', 'Unity', 'React', 'Node.js', 'WebRTC', 'Python']),
+            'program': 'B.Tech',
+            'joining_year': 2012,
+            'institute': 'IIT Kharagpur',
+            'specialization': 'Signal Processing'
+        },
+        {
+            'name': 'Siddharth Joshi',
+            'email': 'siddharth.joshi@iitkgp.ac.in',
+            'password': 'password123',
+            'role': 'alumni',
+            'alumni_type': 'Founder',
+            'graduation_year': 2017,
+            'department': 'Industrial and Systems Engineering',
+            'hall': 'Azad Hall',
+            'branch': 'B.Tech ISE',
+            'bio': 'FinTech builder. Co-founded PaySwift to enable instant cross-border payments for freelancers. Ex-Razorpay. Building the future of global payments.',
+            'current_company': 'PaySwift',
+            'current_position': 'Co-founder',
+            'location': 'Delhi, NCR',
+            'work_preference': 'onsite',
+            'phone': '+91-9876543231',
+            'website': 'https://payswift.io',
+            'linkedin': 'https://linkedin.com/in/siddharthjoshi',
+            'github': 'https://github.com/siddharthjoshi',
+            'avatar': 'https://randomuser.me/api/portraits/men/14.jpg',
+            'years_of_experience': 7,
+            'domain': 'FinTech, Blockchain',
+            'tech_skills': json.dumps(['FinTech', 'Blockchain', 'Golang', 'Kubernetes', 'Microservices']),
+            'program': 'B.Tech',
+            'joining_year': 2013,
+            'institute': 'IIT Kharagpur',
+            'specialization': 'Operations Research'
+        },
+
+        # ====== INVESTORS (3) — alumni with alumni_type='Investor' ======
+        {
             'name': 'Ananya Iyer',
             'email': 'ananya.iyer@iitkgp.ac.in',
             'password': 'password123',
             'role': 'alumni',
-            'graduation_year': 2013,
-            'department': 'Biotechnology',
+            'alumni_type': 'Investor',
+            'graduation_year': 2008,
+            'department': 'Computer Science and Engineering',
             'hall': 'Indira Gandhi Hall',
-            'branch': 'B.Tech BT',
-            'bio': 'AgriTech innovator combining biotechnology with IoT. Working on precision agriculture solutions. Published researcher with 15+ papers in plant genomics and smart farming.',
-            'current_company': 'FarmTech Innovations',
-            'current_position': 'Chief Science Officer',
-            'location': 'Pune, Maharashtra',
+            'branch': 'B.Tech CSE',
+            'bio': 'Venture partner at Sequoia Capital India. Invested in 25+ startups across SaaS, FinTech, and DeepTech. Board member at 3 unicorns.',
+            'current_company': 'Sequoia Capital India',
+            'current_position': 'Venture Partner',
+            'location': 'Bangalore, Karnataka',
             'work_preference': 'hybrid',
             'phone': '+91-9876543213',
-            'website': 'https://farmtechinnovations.com',
+            'website': 'https://sequoiacap.com',
             'linkedin': 'https://linkedin.com/in/ananyaiyer',
             'github': 'https://github.com/ananyaiyer',
             'avatar': 'https://randomuser.me/api/portraits/women/4.jpg',
-            'years_of_experience': 10,
-            'domain': 'AgriTech, Biotechnology, IoT',
-            'tech_skills': json.dumps(['Python', 'R', 'IoT', 'Data Science', 'Bioinformatics']),
+            'years_of_experience': 16,
+            'domain': 'Venture Capital, DeepTech',
+            'tech_skills': json.dumps(['Python', 'R', 'Data Science', 'Financial Modeling']),
             'program': 'B.Tech',
-            'joining_year': 2009,
+            'joining_year': 2004,
             'institute': 'IIT Kharagpur',
-            'specialization': 'Agricultural Biotechnology'
+            'specialization': 'Computer Science'
         },
         {
             'name': 'Vikram Patel',
             'email': 'vikram.patel@iitkgp.ac.in',
             'password': 'password123',
             'role': 'alumni',
-            'graduation_year': 2014,
+            'alumni_type': 'Investor',
+            'graduation_year': 2009,
             'department': 'Civil Engineering',
             'hall': 'Azad Hall',
             'branch': 'B.Tech CE',
-            'bio': 'Urban planning expert and smart city consultant. Led infrastructure projects worth $500M+. Passionate about sustainable urban development and green buildings.',
-            'current_company': 'SmartCity Consulting',
-            'current_position': 'Senior Partner',
-            'location': 'Delhi, NCR',
-            'work_preference': 'onsite',
+            'bio': 'Angel investor and ex-CTO of Flipkart. Passionate about funding deep-tech and climate-tech startups. Managing Partner at VP Capital.',
+            'current_company': 'VP Capital',
+            'current_position': 'Managing Partner',
+            'location': 'Mumbai, Maharashtra',
+            'work_preference': 'remote',
             'phone': '+91-9876543214',
-            'website': 'https://smartcityconsulting.in',
+            'website': 'https://vpcapital.in',
             'linkedin': 'https://linkedin.com/in/vikrampatel',
             'github': 'https://github.com/vikrampatel',
             'avatar': 'https://randomuser.me/api/portraits/men/5.jpg',
-            'years_of_experience': 9,
-            'domain': 'Urban Planning, GIS, Infrastructure',
+            'years_of_experience': 15,
+            'domain': 'Angel Investing, Infrastructure',
             'tech_skills': json.dumps(['GIS', 'AutoCAD', 'Python', 'ArcGIS', 'BIM', '3D Modeling']),
             'program': 'B.Tech',
-            'joining_year': 2010,
+            'joining_year': 2005,
             'institute': 'IIT Kharagpur',
             'specialization': 'Structural Engineering'
+        },
+        {
+            'name': 'Tanya Bose',
+            'email': 'tanya.bose@iitkgp.ac.in',
+            'password': 'password123',
+            'role': 'alumni',
+            'alumni_type': 'Investor',
+            'graduation_year': 2011,
+            'department': 'Chemical Engineering',
+            'hall': 'Sarojini Naidu Hall',
+            'branch': 'B.Tech ChE',
+            'bio': 'Principal at Accel Partners. Focus on seed-to-Series-A investments in HealthTech and EdTech. Former McKinsey consultant.',
+            'current_company': 'Accel Partners',
+            'current_position': 'Principal',
+            'location': 'Bangalore, Karnataka',
+            'work_preference': 'onsite',
+            'phone': '+91-9876543232',
+            'website': 'https://accel.com',
+            'linkedin': 'https://linkedin.com/in/tanyabose',
+            'github': None,
+            'avatar': 'https://randomuser.me/api/portraits/women/15.jpg',
+            'years_of_experience': 13,
+            'domain': 'Private Equity, HealthTech',
+            'tech_skills': json.dumps(['Financial Modeling', 'Data Analytics', 'Python']),
+            'program': 'B.Tech',
+            'joining_year': 2007,
+            'institute': 'IIT Kharagpur',
+            'specialization': 'Process Systems Engineering'
+        },
+
+        # ====== MENTORS (3) — alumni with alumni_type='Mentor' ======
+        {
+            'name': 'Priya Sharma',
+            'email': 'priya.sharma@iitkgp.ac.in',
+            'password': 'password123',
+            'role': 'alumni',
+            'alumni_type': 'Mentor',
+            'graduation_year': 2007,
+            'department': 'Electrical Engineering',
+            'hall': 'Sarojini Naidu Hall',
+            'branch': 'B.Tech EE',
+            'bio': 'Serial entrepreneur and startup mentor. Founded 2 successful exits (combined $40M). Now mentoring early-stage founders on product-market fit. Former Tesla engineer.',
+            'current_company': 'Self-employed',
+            'current_position': 'Startup Mentor & Advisor',
+            'location': 'Pune, Maharashtra',
+            'work_preference': 'remote',
+            'phone': '+91-9876543211',
+            'website': 'https://priyasharma.dev',
+            'linkedin': 'https://linkedin.com/in/priyasharma',
+            'github': 'https://github.com/priyasharma',
+            'avatar': 'https://randomuser.me/api/portraits/women/2.jpg',
+            'years_of_experience': 17,
+            'domain': 'Product Strategy, IoT, Renewable Energy',
+            'tech_skills': json.dumps(['IoT', 'Embedded Systems', 'Python', 'MQTT', 'Node.js', 'React']),
+            'program': 'B.Tech',
+            'joining_year': 2003,
+            'institute': 'IIT Kharagpur',
+            'specialization': 'Power Electronics and Drives'
         },
         {
             'name': 'Meera Krishnan',
             'email': 'meera.krishnan@iitkgp.ac.in',
             'password': 'password123',
             'role': 'alumni',
-            'graduation_year': 2011,
+            'alumni_type': 'Mentor',
+            'graduation_year': 2006,
             'department': 'Chemical Engineering',
             'hall': 'Sarojini Naidu Hall',
             'branch': 'B.Tech ChE',
-            'bio': 'Green chemistry advocate and process optimization expert. Leading sustainability initiatives in manufacturing. Former Shell engineer, now consulting for Fortune 500 companies.',
-            'current_company': 'ChemOptima Solutions',
-            'current_position': 'Director of Sustainability',
+            'bio': 'VP Engineering at Amazon India (prev. Netflix). Mentors founders on scaling engineering teams, system design, and tech leadership. Green chemistry advocate.',
+            'current_company': 'Amazon India',
+            'current_position': 'VP Engineering',
             'location': 'Chennai, Tamil Nadu',
             'work_preference': 'hybrid',
             'phone': '+91-9876543215',
@@ -203,16 +303,44 @@ def seed_database():
             'linkedin': 'https://linkedin.com/in/meerakrishnan',
             'github': 'https://github.com/meerakrishnan',
             'avatar': 'https://randomuser.me/api/portraits/women/6.jpg',
-            'years_of_experience': 12,
-            'domain': 'Chemical Engineering, Sustainability, Process Optimization',
+            'years_of_experience': 18,
+            'domain': 'Engineering Leadership, Chemical Engineering',
             'tech_skills': json.dumps(['ASPEN', 'MATLAB', 'Python', 'Process Simulation', 'Machine Learning']),
             'program': 'B.Tech',
-            'joining_year': 2007,
+            'joining_year': 2002,
             'institute': 'IIT Kharagpur',
             'specialization': 'Process Systems Engineering'
         },
-        
-        # Students with complete profiles
+        {
+            'name': 'Rohan Desai',
+            'email': 'rohan.desai@iitkgp.ac.in',
+            'password': 'password123',
+            'role': 'alumni',
+            'alumni_type': 'Mentor',
+            'graduation_year': 2010,
+            'department': 'Architecture and Regional Planning',
+            'hall': 'Azad Hall',
+            'branch': 'B.Arch',
+            'bio': 'Growth advisor and ex-CMO of Swiggy. Helps startups with GTM strategy, brand building, and scaling from 0 to 1. Smart city consultant.',
+            'current_company': 'GrowthX',
+            'current_position': 'Growth Advisor',
+            'location': 'Bangalore, Karnataka',
+            'work_preference': 'remote',
+            'phone': '+91-9876543233',
+            'website': 'https://growthx.club',
+            'linkedin': 'https://linkedin.com/in/rohandesai',
+            'github': 'https://github.com/rohandesai',
+            'avatar': 'https://randomuser.me/api/portraits/men/16.jpg',
+            'years_of_experience': 14,
+            'domain': 'Growth & Marketing, Urban Planning',
+            'tech_skills': json.dumps(['GIS', 'AutoCAD', 'Python', 'Data Analytics']),
+            'program': 'B.Arch',
+            'joining_year': 2005,
+            'institute': 'IIT Kharagpur',
+            'specialization': 'Urban Planning'
+        },
+
+        # ====== STUDENTS (5) ======
         {
             'name': 'Sneha Reddy',
             'email': 'sneha.reddy@iitkgp.ac.in',
@@ -306,7 +434,7 @@ def seed_database():
             'department': 'Mechanical Engineering',
             'hall': 'Nehru Hall',
             'branch': 'B.Tech ME',
-            'bio': 'Mechanical engineering student passionate about robotics and automation. Building autonomous robots. Captain of IIT KGP Robotics Team. Interested in manufacturing automation.',
+            'bio': 'Mechanical engineering student passionate about robotics and automation. Building autonomous robots. Captain of IIT KGP Robotics Team.',
             'current_company': None,
             'current_position': 'Student',
             'location': 'Kharagpur, West Bengal',
@@ -351,34 +479,6 @@ def seed_database():
             'past_projects': json.dumps([
                 {'title': 'Waste Water Treatment Model', 'description': 'Simulation of waste water treatment process', 'tech': ['ASPEN', 'MATLAB']},
                 {'title': 'Process Optimization', 'description': 'AI-based chemical process optimizer', 'tech': ['Python', 'Machine Learning']}
-            ])
-        },
-        {
-            'name': 'Rohan Desai',
-            'email': 'rohan.desai@iitkgp.ac.in',
-            'password': 'password123',
-            'role': 'student',
-            'graduation_year': None,
-            'department': 'Civil Engineering',
-            'hall': 'Azad Hall',
-            'branch': 'B.Tech CE',
-            'bio': 'Civil engineering student interested in smart cities and sustainable infrastructure. Learning GIS and urban planning. Active member of Civil Engineering Society.',
-            'current_company': None,
-            'current_position': 'Student',
-            'location': 'Kharagpur, West Bengal',
-            'work_preference': 'onsite',
-            'phone': '+91-9876543221',
-            'website': None,
-            'linkedin': 'https://linkedin.com/in/rohandesai',
-            'github': 'https://github.com/rohandesai',
-            'avatar': 'https://randomuser.me/api/portraits/men/12.jpg',
-            'program': 'B.Tech',
-            'joining_year': 2022,
-            'institute': 'IIT Kharagpur',
-            'specialization': 'Infrastructure Engineering',
-            'past_projects': json.dumps([
-                {'title': 'Traffic Flow Simulation', 'description': 'Simulating urban traffic patterns', 'tech': ['Python', 'SUMO', 'GIS']},
-                {'title': 'Bridge Design Tool', 'description': 'Structural analysis tool for bridge design', 'tech': ['AutoCAD', 'STAAD Pro']}
             ])
         }
     ]
@@ -516,7 +616,7 @@ def seed_database():
             'created_by': user_ids['rajesh.kumar@iitkgp.ac.in'],
             'skills_required': json.dumps(['Python', 'TensorFlow', 'Computer Vision', 'Medical Imaging', 'Flask', 'REST API']),
             'is_recruiting': True,
-            'images': json.dumps(placeholder_imgs[:3]),
+            'images': json.dumps(placeholder_imgs[:3]), # type: ignore
             'project_links': json.dumps([
                 {'label': 'Project Website', 'url': 'https://example.com/ai-health'},
                 {'label': 'GitHub Repository', 'url': 'https://github.com/example/ai-health'},
@@ -552,7 +652,7 @@ def seed_database():
             'created_by': user_ids['priya.sharma@iitkgp.ac.in'],
             'skills_required': json.dumps(['IoT', 'Embedded Systems', 'Python', 'Data Analytics', 'MQTT', 'Node.js']),
             'is_recruiting': True,
-            'images': json.dumps(placeholder_imgs[1:4]),
+            'images': json.dumps(placeholder_imgs[1:4]), # type: ignore
             'project_links': json.dumps([
                 {'label': 'Project Pitch', 'url': 'https://example.com/clean-tech'},
                 {'label': 'Technical Docs', 'url': 'https://docs.example.com/clean-tech'}
@@ -586,7 +686,7 @@ def seed_database():
             'created_by': user_ids['amit.singh@iitkgp.ac.in'],
             'skills_required': json.dumps(['React', 'Node.js', 'MongoDB', 'AI/ML', 'Express.js']),
             'is_recruiting': False,
-            'images': json.dumps(placeholder_imgs[:2]),
+            'images': json.dumps(placeholder_imgs[:2]), # type: ignore
             'project_links': json.dumps([
                 {'label': 'Platform Demo', 'url': 'https://example.com/edtech-demo'}
             ]),
@@ -650,7 +750,7 @@ def seed_database():
             'created_by': user_ids['ananya.iyer@iitkgp.ac.in'],
             'skills_required': json.dumps(['IoT', 'Sensors', 'Python', 'Data Visualization', 'Arduino']),
             'is_recruiting': True,
-            'images': json.dumps(placeholder_imgs[::2]),
+            'images': json.dumps(placeholder_imgs[::2]), # type: ignore
             'project_links': json.dumps([
                 {'label': 'Live Dashboard', 'url': 'https://example.com/agri-dash'},
                 {'label': 'Research Paper', 'url': 'https://example.com/agri-research'}
@@ -684,7 +784,7 @@ def seed_database():
             'created_by': user_ids['vikram.patel@iitkgp.ac.in'],
             'skills_required': json.dumps(['GIS', 'AutoCAD', 'Python', '3D Modeling', 'ArcGIS', 'Three.js']),
             'is_recruiting': True,
-            'images': json.dumps(placeholder_imgs[:3]),
+            'images': json.dumps(placeholder_imgs[:3]), # type: ignore
             'project_links': json.dumps([
                 {'label': 'Project Overview', 'url': 'https://example.com/urban-planning'}
             ]),
@@ -717,7 +817,7 @@ def seed_database():
             'created_by': user_ids['meera.krishnan@iitkgp.ac.in'],
             'skills_required': json.dumps(['Chemical Engineering', 'Python', 'Machine Learning', 'Process Simulation', 'ASPEN']),
             'is_recruiting': True,
-            'images': json.dumps(placeholder_imgs[1:4]),
+            'images': json.dumps(placeholder_imgs[1:4]), # type: ignore
             'project_links': json.dumps([
                 {'label': 'Case Study', 'url': 'https://example.com/chem-case'},
                 {'label': 'Technical Whitepaper', 'url': 'https://example.com/chem-whitepaper'}
@@ -1228,8 +1328,8 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
          'message': 'Hello Priya, I am passionate about renewable energy and IoT. Your work with GreenGrid Technologies resonates with my interests. I am working on a smart grid optimization project and would appreciate guidance on sustainable energy solutions and how to make impact in this space.', 
          'status': 'accepted'},
         
-        {'student_id': user_ids['neha.gupta@iitkgp.ac.in'], 'alumni_id': user_ids['ananya.iyer@iitkgp.ac.in'], 
-         'message': 'Hi Ananya, I am a biotechnology student interested in AgriTech. Your work combining biotech with IoT is fascinating. I am researching plant disease detection and would love to learn from your experience at FarmTech Innovations. How can I transition from research to building real-world solutions?', 
+        {'student_id': user_ids['neha.gupta@iitkgp.ac.in'], 'alumni_id': user_ids['rohan.desai@iitkgp.ac.in'], 
+         'message': 'Hi Rohan, I am a biotechnology student interested in growth strategy for AgriTech. Your experience as Growth Advisor is fascinating. I am researching plant disease detection and would love to learn from your experience. How can I transition from research to building real-world solutions?', 
          'status': 'accepted'},
         
         {'student_id': user_ids['arjun.mehta@iitkgp.ac.in'], 'alumni_id': user_ids['amit.singh@iitkgp.ac.in'], 
@@ -1240,8 +1340,8 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
          'message': 'Hi Meera, I am a chemical engineering student passionate about sustainable manufacturing and green chemistry. Your work at ChemOptima Solutions perfectly aligns with my interests. I am researching process optimization and would appreciate your guidance on combining AI with chemical engineering.', 
          'status': 'pending'},
         
-        {'student_id': user_ids['rohan.desai@iitkgp.ac.in'], 'alumni_id': user_ids['vikram.patel@iitkgp.ac.in'], 
-         'message': 'Hello Vikram, I am interested in urban planning and smart cities. Your work on infrastructure projects is amazing. I am learning GIS and would love to understand how to transition from academia to real-world urban planning. Could you share insights on working with government and building smart city solutions?', 
+        {'student_id': user_ids['arjun.mehta@iitkgp.ac.in'], 'alumni_id': user_ids['rohan.desai@iitkgp.ac.in'], 
+         'message': 'Hello Rohan, I am interested in growth strategy and scaling startups. Your work at GrowthX is amazing. I am building an autonomous robotics project and would love to understand how to take it to market. Could you share insights on GTM strategy and brand building?', 
          'status': 'accepted'},
         
         {'student_id': user_ids['sneha.reddy@iitkgp.ac.in'], 'alumni_id': user_ids['amit.singh@iitkgp.ac.in'], 
@@ -1309,8 +1409,8 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
         # Urban Infrastructure - GIS Specialist position
         {'project_id': project_ids['Urban Infrastructure Planning Tool'],
          'position_id': position_ids[f"{project_ids['Urban Infrastructure Planning Tool']}_GIS Specialist"],
-         'student_id': user_ids['rohan.desai@iitkgp.ac.in'],
-         'message': 'I am a civil engineering student with experience in GIS and AutoCAD from my coursework. I have worked on urban traffic flow simulation using SUMO and GIS tools. I am passionate about smart cities and sustainable urban development. India\'s urbanization presents unique challenges and I want to be part of building cities that are livable, sustainable, and inclusive.',
+         'student_id': user_ids['karan.malhotra@iitkgp.ac.in'],
+         'message': 'I am an electrical engineering student with interest in smart cities and GIS. I have worked on IoT-based urban monitoring and traffic flow simulation. I am passionate about smart cities and sustainable urban development. India\'s urbanization presents unique challenges and I want to be part of building cities that are livable, sustainable, and inclusive.',
          'status': 'pending',
          'has_team': False},
         
@@ -1359,7 +1459,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
         ('sneha.reddy@iitkgp.ac.in', 'rajesh.kumar@iitkgp.ac.in'),
         ('karan.malhotra@iitkgp.ac.in', 'priya.sharma@iitkgp.ac.in'),
         ('neha.gupta@iitkgp.ac.in', 'ananya.iyer@iitkgp.ac.in'),
-        ('rohan.desai@iitkgp.ac.in', 'vikram.patel@iitkgp.ac.in'),
+        ('arjun.mehta@iitkgp.ac.in', 'meera.krishnan@iitkgp.ac.in'),
     ]
     
     message_templates = [
@@ -1393,7 +1493,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     # Students like alumni blog posts
     student_emails = ['sneha.reddy@iitkgp.ac.in', 'karan.malhotra@iitkgp.ac.in', 
                       'neha.gupta@iitkgp.ac.in', 'arjun.mehta@iitkgp.ac.in',
-                      'divya.nair@iitkgp.ac.in', 'rohan.desai@iitkgp.ac.in']
+                      'divya.nair@iitkgp.ac.in']
     
     for post_title, post_id in blog_post_ids.items():
         # Each post gets likes from 3-5 random students
@@ -1667,11 +1767,168 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     
     print("✓ Events seeded")
 
+    # ----------------- LaunchDeck: Pitches -----------------
+    print("\n🚀 Seeding LaunchDeck data...")
+    
+    # Get founder and investor IDs for LaunchDeck
+    founder_emails = ['rajesh.kumar@iitkgp.ac.in', 'amit.singh@iitkgp.ac.in', 'riya.chakraborty@iitkgp.ac.in', 'siddharth.joshi@iitkgp.ac.in']
+    investor_emails = ['ananya.iyer@iitkgp.ac.in', 'vikram.patel@iitkgp.ac.in', 'tanya.bose@iitkgp.ac.in']
+    mentor_emails = ['priya.sharma@iitkgp.ac.in', 'meera.krishnan@iitkgp.ac.in', 'rohan.desai@iitkgp.ac.in']
+    
+    pitches = [
+        {
+            'founder_id': user_ids['rajesh.kumar@iitkgp.ac.in'],
+            'title': 'NeuralMesh AI',
+            'tagline': 'Democratizing Machine Learning for Every Business',
+            'pitch_overview': 'NeuralMesh AI provides no-code ML tools that enable small and medium businesses to build, deploy, and manage machine learning models without data science expertise. Our platform reduces ML development time by 80% and cost by 60%.',
+            'highlights': json.dumps(['$2M ARR', '150+ Enterprise Clients', 'Google AI Partnership', '3x YoY Growth']),
+            'team_members': json.dumps([{'name': 'Dr. Rajesh Kumar', 'role': 'CEO & Founder'}, {'name': 'Arun Nair', 'role': 'CTO'}, {'name': 'Deepika Rao', 'role': 'VP Product'}]),
+            'pitch_deck_images': json.dumps(['https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800', 'https://images.unsplash.com/photo-1555949963-aa79dcee981d?w=800', 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800']),
+            'category': 'AI/ML',
+            'website': 'https://neuralmesh.ai',
+            'social_links': json.dumps({'linkedin': 'https://linkedin.com/company/neuralmesh', 'twitter': 'https://twitter.com/neuralmesh'}),
+            'status': 'published'
+        },
+        {
+            'founder_id': user_ids['amit.singh@iitkgp.ac.in'],
+            'title': 'GreenHarvest AgriTech',
+            'tagline': 'AI-Powered Precision Agriculture for Indian Farmers',
+            'pitch_overview': 'GreenHarvest uses IoT sensors and AI/ML to provide real-time crop health monitoring, smart irrigation, and yield optimization. We help farmers increase yield by 30% while reducing water usage by 40%.',
+            'highlights': json.dumps(['500+ Acres Deployed', '40% Water Savings', 'Forbes 30 Under 30', 'ICAR Partnership']),
+            'team_members': json.dumps([{'name': 'Amit Singh', 'role': 'Co-founder & CTO'}, {'name': 'Kavya Reddy', 'role': 'Co-founder & CEO'}, {'name': 'Nikhil Sharma', 'role': 'Head of Agronomy'}]),
+            'pitch_deck_images': json.dumps(['https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=800', 'https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?w=800', 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800']),
+            'category': 'AgriTech',
+            'website': 'https://greenharvest.in',
+            'social_links': json.dumps({'linkedin': 'https://linkedin.com/company/greenharvest'}),
+            'status': 'published'
+        },
+        {
+            'founder_id': user_ids['riya.chakraborty@iitkgp.ac.in'],
+            'title': 'EduVerse Technologies',
+            'tagline': 'Immersive Virtual Campus Experiences for Everyone',
+            'pitch_overview': 'EduVerse creates AR/VR-powered virtual campus tours and immersive learning experiences. Students can explore campuses, attend virtual lectures, and collaborate in 3D spaces from anywhere in the world.',
+            'highlights': json.dumps(['50+ University Partners', '100K+ Virtual Tours', 'Microsoft for Startups', 'Series A Ready']),
+            'team_members': json.dumps([{'name': 'Riya Chakraborty', 'role': 'Founder & CEO'}, {'name': 'Arjun Das', 'role': 'Head of Engineering'}, {'name': 'Pooja Verma', 'role': 'VP Design'}]),
+            'pitch_deck_images': json.dumps(['https://images.unsplash.com/photo-1592478411213-6153e4ebc07d?w=800', 'https://images.unsplash.com/photo-1593508512255-86ab42a8e620?w=800', 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800']),
+            'category': 'EdTech',
+            'website': 'https://eduverse.tech',
+            'social_links': json.dumps({'linkedin': 'https://linkedin.com/company/eduverse', 'twitter': 'https://twitter.com/eduverse'}),
+            'status': 'published'
+        },
+        {
+            'founder_id': user_ids['siddharth.joshi@iitkgp.ac.in'],
+            'title': 'PaySwift',
+            'tagline': 'Instant Cross-Border Payments for the Global Workforce',
+            'pitch_overview': 'PaySwift enables freelancers and remote workers to receive international payments instantly with the lowest fees in the market. Our blockchain-based infrastructure reduces transaction costs by 70% compared to traditional methods.',
+            'highlights': json.dumps(['$5M Monthly Volume', '25K Active Users', 'RBI Sandbox Selected', 'Razorpay Alumni Founded']),
+            'team_members': json.dumps([{'name': 'Siddharth Joshi', 'role': 'Co-founder'}, {'name': 'Ankita Mishra', 'role': 'Co-founder & CEO'}, {'name': 'Rahul Agarwal', 'role': 'Head of Compliance'}]),
+            'pitch_deck_images': json.dumps(['https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=800', 'https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=800', 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800']),
+            'category': 'FinTech',
+            'website': 'https://payswift.io',
+            'social_links': json.dumps({'linkedin': 'https://linkedin.com/company/payswift'}),
+            'status': 'published'
+        },
+        {
+            'founder_id': user_ids['rajesh.kumar@iitkgp.ac.in'],
+            'title': 'MediScan Pro',
+            'tagline': 'AI Diagnostics for Rural Healthcare',
+            'pitch_overview': 'MediScan Pro brings AI-powered medical diagnostics to rural clinics. Our portable device + AI platform can screen for 15+ conditions from a simple blood sample, providing results in under 10 minutes.',
+            'highlights': json.dumps(['95% Diagnostic Accuracy', 'ICMR Partnership', '200+ Rural Clinics', 'WHO Innovation Award']),
+            'team_members': json.dumps([{'name': 'Dr. Rajesh Kumar', 'role': 'Founder'}, {'name': 'Dr. Sneha Rao', 'role': 'Chief Medical Officer'}, {'name': 'Vikash Gupta', 'role': 'CTO'}]),
+            'pitch_deck_images': json.dumps(['https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800', 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800', 'https://images.unsplash.com/photo-1581093588401-16f2d7f3d8ac?w=800']),
+            'category': 'HealthTech',
+            'website': 'https://mediscanpro.in',
+            'social_links': json.dumps({'linkedin': 'https://linkedin.com/company/mediscanpro'}),
+            'status': 'published'
+        },
+        {
+            'founder_id': user_ids['riya.chakraborty@iitkgp.ac.in'],
+            'title': 'SkillBridge',
+            'tagline': 'Connecting Campus Talent with Industry Projects',
+            'pitch_overview': 'SkillBridge matches university students with real industry projects, providing hands-on experience while companies get quality work done. Think Upwork meets Campus Placement.',
+            'highlights': json.dumps(['10K+ Student Profiles', '500+ Company Projects', '85% Placement Rate', 'NIT/IIT Network']),
+            'team_members': json.dumps([{'name': 'Riya Chakraborty', 'role': 'Co-founder'}, {'name': 'Manish Kapoor', 'role': 'Co-founder & CTO'}]),
+            'pitch_deck_images': json.dumps(['https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800', 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800']),
+            'category': 'EdTech',
+            'website': 'https://skillbridge.io',
+            'social_links': json.dumps({'linkedin': 'https://linkedin.com/company/skillbridge'}),
+            'status': 'published'
+        }
+    ]
+    
+    pitch_ids = []
+    for pitch in pitches:
+        cursor.execute('''INSERT INTO pitches (founder_id, title, tagline, pitch_overview, highlights,
+                          team_members, pitch_deck_images, category, website, social_links, status)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                       (pitch['founder_id'], pitch['title'], pitch['tagline'], pitch['pitch_overview'],
+                        pitch['highlights'], pitch['team_members'], pitch['pitch_deck_images'],
+                        pitch['category'], pitch['website'], pitch['social_links'], pitch['status']))
+        pitch_ids.append(cursor.lastrowid)
+    print(f"✓ LaunchDeck pitches seeded ({len(pitches)} pitches)")
+    
+    # ----------------- LaunchDeck: Investor Interests -----------------
+    # Status values: 'pending', 'admin_notified', 'meeting_setup'
+    interests = [
+        {'pitch_id': pitch_ids[0], 'investor_id': user_ids['ananya.iyer@iitkgp.ac.in'], 'message': 'Very impressed with NeuralMesh\'s traction. Would love to discuss the enterprise GTM strategy and unit economics. Can we schedule a call?', 'status': 'pending'},
+        {'pitch_id': pitch_ids[0], 'investor_id': user_ids['vikram.patel@iitkgp.ac.in'], 'message': 'Interesting approach to democratizing ML. What\'s the competitive moat against larger players like DataRobot?', 'status': 'pending'},
+        {'pitch_id': pitch_ids[1], 'investor_id': user_ids['tanya.bose@iitkgp.ac.in'], 'message': 'AgriTech is a focus area for us. The farmer adoption numbers are impressive. What\'s the retention rate?', 'status': 'admin_notified'},
+        {'pitch_id': pitch_ids[1], 'investor_id': user_ids['ananya.iyer@iitkgp.ac.in'], 'message': 'Love the impact metrics. How does the unit economics look per acre?', 'status': 'pending'},
+        {'pitch_id': pitch_ids[2], 'investor_id': user_ids['vikram.patel@iitkgp.ac.in'], 'message': 'AR/VR in education is a space I believe in strongly. What\'s the revenue model?', 'status': 'meeting_setup'},
+        {'pitch_id': pitch_ids[3], 'investor_id': user_ids['ananya.iyer@iitkgp.ac.in'], 'message': 'Cross-border payments is a massive market. How are you handling regulatory compliance across countries?', 'status': 'pending'},
+        {'pitch_id': pitch_ids[3], 'investor_id': user_ids['tanya.bose@iitkgp.ac.in'], 'message': 'RBI sandbox selection is a great validation. What\'s the path to full RBI approval?', 'status': 'admin_notified'},
+        {'pitch_id': pitch_ids[4], 'investor_id': user_ids['tanya.bose@iitkgp.ac.in'], 'message': 'HealthTech is our core focus. The rural healthcare angle is compelling. What\'s the distribution strategy?', 'status': 'meeting_setup'},
+    ]
+    
+    for interest in interests:
+        cursor.execute('''INSERT INTO pitch_interests (pitch_id, investor_id, message, status)
+                          VALUES (?, ?, ?, ?)''',
+                       (interest['pitch_id'], interest['investor_id'], interest['message'], interest['status']))
+    print(f"✓ LaunchDeck investor interests seeded ({len(interests)} interests)")
+    
+    # ----------------- LaunchDeck: Mentorship Requests -----------------
+    ld_mentorship = [
+        {'founder_id': user_ids['rajesh.kumar@iitkgp.ac.in'], 'mentor_id': user_ids['priya.sharma@iitkgp.ac.in'], 'pitch_id': pitch_ids[0], 'message': 'Would love your guidance on product-market fit for our enterprise ML platform. Your experience with successful exits would be invaluable.', 'status': 'accepted'},
+        {'founder_id': user_ids['amit.singh@iitkgp.ac.in'], 'mentor_id': user_ids['rohan.desai@iitkgp.ac.in'], 'pitch_id': pitch_ids[1], 'message': 'Need help with GTM strategy for GreenHarvest. How do we scale farmer acquisition beyond our current network?', 'status': 'accepted'},
+        {'founder_id': user_ids['riya.chakraborty@iitkgp.ac.in'], 'mentor_id': user_ids['meera.krishnan@iitkgp.ac.in'], 'pitch_id': pitch_ids[2], 'message': 'Looking for advice on scaling engineering teams as we prepare for Series A. Your experience at Amazon and Netflix would be incredibly helpful.', 'status': 'pending'},
+        {'founder_id': user_ids['siddharth.joshi@iitkgp.ac.in'], 'mentor_id': user_ids['priya.sharma@iitkgp.ac.in'], 'pitch_id': pitch_ids[3], 'message': 'Need guidance on navigating regulatory challenges in FinTech. How do we balance innovation with compliance?', 'status': 'pending'},
+        {'founder_id': user_ids['rajesh.kumar@iitkgp.ac.in'], 'mentor_id': user_ids['rohan.desai@iitkgp.ac.in'], 'pitch_id': pitch_ids[4], 'message': 'Seeking advice on brand building and marketing strategy for MediScan Pro in the rural healthcare space.', 'status': 'accepted'},
+    ]
+    
+    for req in ld_mentorship:
+        cursor.execute('''INSERT INTO launchdeck_mentorship_requests (founder_id, mentor_id, pitch_id, message, status)
+                          VALUES (?, ?, ?, ?, ?)''',
+                       (req['founder_id'], req['mentor_id'], req['pitch_id'], req['message'], req['status']))
+    print(f"✓ LaunchDeck mentorship requests seeded ({len(ld_mentorship)} requests)")
+    
+    # ----------------- LaunchDeck: Admin Notifications -----------------
+    now = datetime.now()
+    notifications = [
+        {'message': 'New pitch submitted: NeuralMesh AI by Dr. Rajesh Kumar', 'type': 'new_pitch', 'reference_id': pitch_ids[0], 'is_read': False, 'created_at': (now - timedelta(hours=2)).strftime('%Y-%m-%d %H:%M:%S')},
+        {'message': 'New pitch submitted: GreenHarvest AgriTech by Amit Singh', 'type': 'new_pitch', 'reference_id': pitch_ids[1], 'is_read': False, 'created_at': (now - timedelta(hours=5)).strftime('%Y-%m-%d %H:%M:%S')},
+        {'message': 'New pitch submitted: EduVerse Technologies by Riya Chakraborty', 'type': 'new_pitch', 'reference_id': pitch_ids[2], 'is_read': True, 'created_at': (now - timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')},
+        {'message': 'New pitch submitted: PaySwift by Siddharth Joshi', 'type': 'new_pitch', 'reference_id': pitch_ids[3], 'is_read': True, 'created_at': (now - timedelta(days=1, hours=3)).strftime('%Y-%m-%d %H:%M:%S')},
+        {'message': 'Investor Ananya Iyer showed interest in NeuralMesh AI', 'type': 'investor_interest', 'reference_id': pitch_ids[0], 'is_read': False, 'created_at': (now - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')},
+        {'message': 'Investor Vikram Patel showed interest in NeuralMesh AI', 'type': 'investor_interest', 'reference_id': pitch_ids[0], 'is_read': False, 'created_at': (now - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S')},
+        {'message': 'Investor Tanya Bose showed interest in GreenHarvest AgriTech', 'type': 'investor_interest', 'reference_id': pitch_ids[1], 'is_read': True, 'created_at': (now - timedelta(days=2)).strftime('%Y-%m-%d %H:%M:%S')},
+        {'message': 'Meeting setup: Vikram Patel ↔ EduVerse Technologies', 'type': 'meeting_setup', 'reference_id': pitch_ids[2], 'is_read': False, 'created_at': (now - timedelta(hours=4)).strftime('%Y-%m-%d %H:%M:%S')},
+        {'message': 'Meeting setup: Tanya Bose ↔ MediScan Pro', 'type': 'meeting_setup', 'reference_id': pitch_ids[4], 'is_read': False, 'created_at': (now - timedelta(hours=6)).strftime('%Y-%m-%d %H:%M:%S')},
+        {'message': 'Mentorship request accepted: Priya Sharma will mentor NeuralMesh AI', 'type': 'mentorship_update', 'reference_id': pitch_ids[0], 'is_read': True, 'created_at': (now - timedelta(days=3)).strftime('%Y-%m-%d %H:%M:%S')},
+        {'message': 'Mentorship request accepted: Rohan Desai will mentor GreenHarvest AgriTech', 'type': 'mentorship_update', 'reference_id': pitch_ids[1], 'is_read': True, 'created_at': (now - timedelta(days=2, hours=5)).strftime('%Y-%m-%d %H:%M:%S')},
+        {'message': 'New pitch submitted: MediScan Pro by Dr. Rajesh Kumar', 'type': 'new_pitch', 'reference_id': pitch_ids[4], 'is_read': False, 'created_at': (now - timedelta(hours=8)).strftime('%Y-%m-%d %H:%M:%S')},
+    ]
+    
+    for notif in notifications:
+        cursor.execute('''INSERT INTO admin_notifications (type, reference_id, message, is_read, created_at)
+                          VALUES (?, ?, ?, ?, ?)''',
+                       (notif['type'], notif['reference_id'], notif['message'], notif['is_read'], notif['created_at']))
+    print(f"✓ LaunchDeck admin notifications seeded ({len(notifications)} notifications)")
+
     conn.commit()
     conn.close()
-    print("✅ Database seeded successfully with comprehensive data!")
+    print("\n✅ Database seeded successfully with comprehensive data!")
     print("\n📊 Summary:")
-    print(f"   - Users: {len(users)} (6 Alumni, 6 Students)")
+    print(f"   - Users: {len(users)} (4 Founders, 3 Investors, 3 Mentors, 5 Students)")
     print(f"   - Projects: {len(projects)}")
     print(f"   - Services: {len(services_data)}")
     print(f"   - Project Positions: {len(project_positions)}")
@@ -1679,10 +1936,17 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     print(f"   - Mentorship Requests: {len(mentorship_requests)}")
     print(f"   - Project Applications: {len(project_applications)}")
     print(f"   - Conversations: {len(conversation_pairs)}")
+    print(f"   - LaunchDeck Pitches: {len(pitches)}")
+    print(f"   - LaunchDeck Investor Interests: {len(interests)}")
+    print(f"   - LaunchDeck Mentorship Requests: {len(ld_mentorship)}")
+    print(f"   - LaunchDeck Notifications: {len(notifications)}")
     print(f"   - Skills, Achievements, and Languages added for all users")
-    print("\n🔐 Login credentials:")
-    print("   Alumni: rajesh.kumar@iitkgp.ac.in / password123")
-    print("   Student: sneha.reddy@iitkgp.ac.in / password123")
+    print("\n🔐 Login credentials (all passwords: password123):")
+    print("   Admin:    Admin@kgplaunchpad.in / IITKGP2026")
+    print("   Founder:  rajesh.kumar@iitkgp.ac.in")
+    print("   Investor: ananya.iyer@iitkgp.ac.in")
+    print("   Mentor:   priya.sharma@iitkgp.ac.in")
+    print("   Student:  sneha.reddy@iitkgp.ac.in")
 
 if __name__ == '__main__':
     seed_database()
