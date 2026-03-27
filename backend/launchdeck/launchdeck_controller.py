@@ -180,7 +180,7 @@ def mark_notification_read(notif_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@launchdeck_bp.route('/admin/mentorship/assign', methods=['POST'])
+@launchdeck_bp.route('/launchdeck/admin/mentorship/assign', methods=['POST'])
 @jwt_required()
 def assign_mentor():
     data = request.json
@@ -191,7 +191,7 @@ def assign_mentor():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@launchdeck_bp.route('/admin/mentors', methods=['GET'])
+@launchdeck_bp.route('/launchdeck/mentors', methods=['GET'])
 @jwt_required()
 def get_launchdeck_mentors():
     try:
@@ -201,7 +201,7 @@ def get_launchdeck_mentors():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@launchdeck_bp.route('/admin/interests', methods=['GET'])
+@launchdeck_bp.route('/launchdeck/admin/interests', methods=['GET'])
 @jwt_required()
 def get_all_interests():
     try:
@@ -211,7 +211,7 @@ def get_all_interests():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@launchdeck_bp.route('/admin/interests/<int:interest_id>/status', methods=['PUT'])
+@launchdeck_bp.route('/launchdeck/admin/interests/<int:interest_id>/status', methods=['PUT'])
 @jwt_required()
 def update_interest_status(interest_id):
     try:

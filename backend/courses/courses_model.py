@@ -106,7 +106,7 @@ def enroll_course(user_id, course_id):
         
         conn.execute('''
             INSERT INTO course_enrollments (user_id, course_id, status, payment_status)
-            VALUES (?, ?, 'pending', 'paid') 
+            VALUES (?, ?, 'pending', 'pending')
         ''', (user_id, course_id))
         conn.commit()
         return True, "Enrolled successfully", 201

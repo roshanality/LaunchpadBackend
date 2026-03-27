@@ -56,12 +56,19 @@ def register():
 
         user = create_user(user_data)
 
-        # Create access token
-        access_token = create_access_token(identity=f"user_{user['id']}")
-
         # Remove password hash from response
         user.pop('password_hash', None)
         user['is_approved'] = bool(user['is_approved'])
+
+        # Roles requiring admin approval: no token issued until approved
+        if not user['is_approved']:
+            return jsonify({
+                'message': 'Registration successful. Your account is pending admin approval.',
+                'user': user
+            }), 202
+
+        # Create access token
+        access_token = create_access_token(identity=f"user_{user['id']}")
 
         return jsonify({
             'token': access_token,
@@ -84,6 +91,10 @@ def login():
 
         if not user or not check_password_hash(user['password_hash'], data['password']):
             return jsonify({'error': 'Invalid credentials'}), 401
+
+        # Roles that require admin approval before login
+        if user['role'] in ('mentor', 'investor', 'founder', 'alumni') and not user.get('is_approved'):
+            return jsonify({'error': 'Your account is pending admin approval. You will be notified once approved.'}), 403
 
         # Admin login requires OTP verification
         if user['role'] == 'admin':
