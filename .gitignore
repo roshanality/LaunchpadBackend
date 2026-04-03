@@ -1,0 +1,9 @@
+.venv
+venv/
+__pycache__/
+*.pyc
+.env
+launchpad.db
+backend.log
+uploads/
+project.zip
