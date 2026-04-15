@@ -3,13 +3,13 @@ import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
-SMTP_PORT = int(os.environ.get('SMTP_PORT', 587))
-SMTP_USER = os.environ.get('SMTP_USER', '')
-SMTP_PASS = os.environ.get('SMTP_PASS', '')
-FROM_NAME = os.environ.get('FROM_NAME', 'KGP Launchpad')
+SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASS = os.environ.get("SMTP_PASS", "")
+FROM_NAME = os.environ.get("FROM_NAME", "KGP Launchpad")
 
-ADMIN_EMAIL = 'Akshat2k24@gmail.com'
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@example.com")
 
 
 def send_admin_otp(otp: str) -> bool:
@@ -39,11 +39,11 @@ def send_admin_otp(otp: str) -> bool:
     </div>
     """
 
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = subject
-    msg['From'] = f"{FROM_NAME} <{SMTP_USER}>"
-    msg['To'] = ADMIN_EMAIL
-    msg.attach(MIMEText(html_body, 'html'))
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"{FROM_NAME} <{SMTP_USER}>"
+    msg["To"] = ADMIN_EMAIL
+    msg.attach(MIMEText(html_body, "html"))
 
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
