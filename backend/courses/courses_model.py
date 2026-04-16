@@ -95,7 +95,7 @@ def update_course(user_id, course_id, data):
     finally:
         conn.close()
 
-def enroll_course(user_id, course_id):
+def enroll_course(user_id, course_id, payment_screenshot=None):
     conn = get_db_connection()
     try:
         course = conn.execute('SELECT id FROM courses WHERE id = ?', (course_id,)).fetchone()
@@ -105,9 +105,9 @@ def enroll_course(user_id, course_id):
         if existing: return False, "Already enrolled in this course", 400
         
         conn.execute('''
-            INSERT INTO course_enrollments (user_id, course_id, status, payment_status)
-            VALUES (?, ?, 'pending', 'pending')
-        ''', (user_id, course_id))
+            INSERT INTO course_enrollments (user_id, course_id, status, payment_status, payment_screenshot)
+            VALUES (?, ?, 'pending', 'pending', ?)
+        ''', (user_id, course_id, payment_screenshot))
         conn.commit()
         return True, "Enrolled successfully", 201
     except Exception as e:
@@ -138,7 +138,7 @@ def get_course_students(user_id, course_id):
         if not is_admin(user_id): return None, "Admin access required", 403
         
         rows = conn.execute('''
-            SELECT ce.id, ce.user_id, ce.status, ce.payment_status, ce.enrolled_at,
+            SELECT ce.id, ce.user_id, ce.status, ce.payment_status, ce.enrolled_at, ce.payment_screenshot,
                    u.name, u.email, u.avatar
             FROM course_enrollments ce
             JOIN users u ON ce.user_id = u.id
@@ -161,5 +161,51 @@ def get_user_enrolled_courses(user_id):
             ORDER BY ce.enrolled_at DESC
         ''', (user_id,)).fetchall()
         return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+def get_enrollment_status(user_id, course_id):
+    conn = get_db_connection()
+    try:
+        row = conn.execute('''
+            SELECT status FROM course_enrollments 
+            WHERE user_id = ? AND course_id = ?
+        ''', (user_id, course_id)).fetchone()
+        return row['status'] if row else None
+    finally:
+        conn.close()
+
+
+def update_enrollment_status(admin_id, enrollment_id, status, message):
+    conn = get_db_connection()
+    try:
+        if not is_admin(admin_id): return False, "Admin access required", 403
+        
+        enrollment = conn.execute('SELECT user_id, course_id FROM course_enrollments WHERE id = ?', (enrollment_id,)).fetchone()
+        if not enrollment: return False, "Enrollment not found", 404
+        
+        payment_status = 'paid' if status == 'approved' else 'pending'
+        
+        conn.execute('''
+            UPDATE course_enrollments 
+            SET status = ?, payment_status = ?
+            WHERE id = ?
+        ''', (status, payment_status, enrollment_id))
+        
+        if message:
+            course = conn.execute('SELECT title FROM courses WHERE id = ?', (enrollment['course_id'],)).fetchone()
+            course_title = course['title'] if course else 'a course'
+            type_str = 'success' if status == 'approved' else 'warning'
+            notification_msg = f"Your application for '{course_title}' was {status}. Admin message: {message}"
+            conn.execute('''
+                INSERT INTO user_notifications (user_id, type, message)
+                VALUES (?, ?, ?)
+            ''', (enrollment['user_id'], type_str, notification_msg))
+            
+        conn.commit()
+        return True, f"Enrollment {status} successfully", 200
+    except Exception as e:
+        conn.rollback()
+        raise e
     finally:
         conn.close()
