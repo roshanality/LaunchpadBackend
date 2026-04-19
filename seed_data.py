@@ -12,40 +12,31 @@ def seed_database():
     conn = sqlite3.connect('launchpad.db')
     cursor = conn.cursor()
     
-    # Clear existing data
-    cursor.execute('DELETE FROM project_applications')
-    cursor.execute('DELETE FROM project_positions')
-    cursor.execute('DELETE FROM conversations')
-    cursor.execute('DELETE FROM messages')
-    cursor.execute('DELETE FROM blog_likes')
-    cursor.execute('DELETE FROM user_skills')
-    cursor.execute('DELETE FROM user_achievements')
-    cursor.execute('DELETE FROM user_languages')
-    cursor.execute('DELETE FROM mentorship_requests')
-    cursor.execute('DELETE FROM blog_posts')
-    cursor.execute('DELETE FROM projects')
-    cursor.execute('DELETE FROM users')
-    cursor.execute('DELETE FROM courses')
-    cursor.execute('DELETE FROM course_enrollments')
-    cursor.execute('DELETE FROM events')
-    cursor.execute('DELETE FROM event_enrollments')
-    cursor.execute('DELETE FROM site_stats')
-    cursor.execute('DELETE FROM service_reviews')
-    cursor.execute('DELETE FROM service_timeline_items')
-    cursor.execute('DELETE FROM service_requests')
-    cursor.execute('DELETE FROM services')
-    # Clear LaunchDeck tables
-    try:
-        cursor.execute('DELETE FROM pitches')
-        cursor.execute('DELETE FROM pitch_interests')
-        cursor.execute('DELETE FROM launchdeck_mentorship_requests')
-        cursor.execute('DELETE FROM admin_notifications')
-    except Exception:
-        pass  # Tables may not exist yet
+    # Helper to execute safely for tables that might not exist anymore
+    def safe_execute(query, params=()):
+        try:
+            return cursor.execute(query, params)
+        except sqlite3.OperationalError as e:
+            if 'no such table' in str(e):
+                pass
+            else:
+                raise e
+
+    # Clear existing data safely
+    tables = [
+        'project_applications', 'project_positions', 'conversations', 'messages',
+        'blog_likes', 'user_skills', 'user_achievements', 'user_languages',
+        'mentorship_requests', 'blog_posts', 'projects', 'users', 'courses',
+        'course_enrollments', 'events', 'event_enrollments', 'site_stats',
+        'service_reviews', 'service_timeline_items', 'service_requests', 'services',
+        'pitches', 'pitch_interests', 'launchdeck_mentorship_requests', 'admin_notifications'
+    ]
+    for table_name in tables:
+        safe_execute(f'DELETE FROM {table_name}')
 
     # ----------------- Admin User -----------------
     admin_password = generate_password_hash('IITKGP2026', method='pbkdf2:sha256')
-    cursor.execute('''
+    safe_execute('''
         INSERT INTO users (name, email, password_hash, role, is_approved, is_blocked)
         VALUES (?, ?, ?, ?, ?, ?)
     ''', ('Admin', 'Admin@kgplaunchpad.in', admin_password, 'admin', True, False))
@@ -486,7 +477,7 @@ def seed_database():
     user_ids = {}
     for user in users:
         password_hash = generate_password_hash(user['password'], method='pbkdf2:sha256')
-        cursor.execute('''
+        safe_execute('''
             INSERT INTO users (name, email, password_hash, role, graduation_year, department, hall, branch, bio,
                                current_company, current_position, location, work_preference, phone, website,
                                linkedin, github, avatar, years_of_experience, domain, tech_skills, program,
@@ -538,7 +529,7 @@ def seed_database():
     for user_email, skills in skills_data.items():
         if user_email in user_ids:
             for skill in skills:
-                cursor.execute('''
+                safe_execute('''
                     INSERT INTO user_skills (user_id, skill_name, skill_type, proficiency_level)
                     VALUES (?, ?, ?, ?)
                 ''', (user_ids[user_email], skill['name'], skill['type'], skill['proficiency']))
@@ -563,7 +554,7 @@ def seed_database():
     for user_email, achievements in achievements_data.items():
         if user_email in user_ids:
             for achievement in achievements:
-                cursor.execute('''
+                safe_execute('''
                     INSERT INTO user_achievements (user_id, title, description, achievement_type, date_earned, issuer)
                     VALUES (?, ?, ?, ?, ?, ?)
                 ''', (user_ids[user_email], achievement['title'], achievement['description'], 
@@ -591,7 +582,7 @@ def seed_database():
     for user_email, languages in languages_data.items():
         if user_email in user_ids:
             for language in languages:
-                cursor.execute('''
+                safe_execute('''
                     INSERT INTO user_languages (user_id, language_name, proficiency_level)
                     VALUES (?, ?, ?)
                 ''', (user_ids[user_email], language['name'], language['proficiency']))
@@ -879,7 +870,7 @@ def seed_database():
     
     project_ids = {}
     for project in projects:
-        cursor.execute('''
+        safe_execute('''
             INSERT INTO projects (title, description, category, status, team_members, tags, created_by, 
                                   skills_required, is_recruiting, images, project_links, jd_pdf, 
                                   contact_details, team_roles, partners, funding, highlights)
@@ -993,7 +984,7 @@ def seed_database():
     
     position_ids = {}
     for pos in project_positions:
-        cursor.execute('''
+        safe_execute('''
             INSERT INTO project_positions (project_id, title, description, required_skills, count, filled_count, is_active, stipend, duration, location)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (pos['project_id'], pos['title'], pos['description'], pos['required_skills'], 
@@ -1312,7 +1303,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     
     blog_post_ids = {}
     for post in blog_posts:
-        cursor.execute('''
+        safe_execute('''
             INSERT INTO blog_posts (title, content, category, author_id)
             VALUES (?, ?, ?, ?)
         ''', (post['title'], post['content'], post['category'], post['author_id']))
@@ -1350,7 +1341,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     ]
     
     for req in mentorship_requests:
-        cursor.execute('''
+        safe_execute('''
             INSERT INTO mentorship_requests (student_id, alumni_id, message, status)
             VALUES (?, ?, ?, ?)
         ''', (req['student_id'], req['alumni_id'], req['message'], req['status']))
@@ -1448,7 +1439,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     ]
     
     for app in project_applications:
-        cursor.execute('''
+        safe_execute('''
             INSERT INTO project_applications (project_id, position_id, student_id, message, status, has_team, feedback, completed_at, is_completed)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (app['project_id'], app['position_id'], app['student_id'], app['message'], app['status'], 
@@ -1473,7 +1464,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
         user1_id = user_ids[u1]
         user2_id = user_ids[u2]
         
-        cursor.execute('''
+        safe_execute('''
             INSERT INTO conversations (user1_id, user2_id)
             VALUES (?, ?)
         ''', (min(user1_id, user2_id), max(user1_id, user2_id)))
@@ -1484,7 +1475,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
         for i, msg_content in enumerate(messages):
             sender = user1_id if i % 2 == 0 else user2_id
             receiver = user2_id if i % 2 == 0 else user1_id
-            cursor.execute('''
+            safe_execute('''
                 INSERT INTO messages (sender_id, receiver_id, content, is_read)
                 VALUES (?, ?, ?, ?)
             ''', (sender, receiver, msg_content, 1 if i < len(messages) - 2 else 0))
@@ -1500,7 +1491,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
         num_likes = random.randint(3, 5)
         liking_students = random.sample(student_emails, num_likes)
         for student_email in liking_students:
-            cursor.execute('''
+            safe_execute('''
                 INSERT OR IGNORE INTO blog_likes (blog_post_id, user_id)
                 VALUES (?, ?)
             ''', (post_id, user_ids[student_email]))
@@ -1565,7 +1556,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     
     for service in services_data:
         if service['provider_email'] in user_ids:
-            cursor.execute('''
+            safe_execute('''
                 INSERT INTO services (provider_id, title, description, category, price_range, delivery_time, image_url, is_active)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
@@ -1580,7 +1571,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
             ))
 
     # ----------------- Service timeline items (mock "How we do it" for each service) -----------------
-    cursor.execute('SELECT id FROM services ORDER BY id')
+    safe_execute('SELECT id FROM services ORDER BY id')
     service_ids = [row[0] for row in cursor.fetchall()]
     timeline_template = [
         {
@@ -1631,7 +1622,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     ]
     for service_id in service_ids:
         for item in timeline_template:
-            cursor.execute('''
+            safe_execute('''
                 INSERT INTO service_timeline_items (service_id, title, description, date, image, status, category, sort_order)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
@@ -1654,7 +1645,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     ]
     for service_id in service_ids:
         for r in reviews_template:
-            cursor.execute('''
+            safe_execute('''
                 INSERT INTO service_reviews (service_id, author_name, content, rating, created_at)
                 VALUES (?, ?, ?, ?, ?)
             ''', (service_id, r['author_name'], r['content'], r['rating'], (datetime.now() - timedelta(days=random.randint(5, 60))).strftime('%Y-%m-%d %H:%M:%S')))
@@ -1701,7 +1692,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     ]
 
     for course in courses:
-        cursor.execute('''
+        safe_execute('''
             INSERT INTO courses (title, description, perks, timeline, duration, assignments, category, image_url, price, start_date)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (course['title'], course['description'], course['perks'], course['timeline'], 
@@ -1760,7 +1751,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     ]
 
     for event in events:
-        cursor.execute('''
+        safe_execute('''
             INSERT INTO events (title, description, type, date, time, location, image_url)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (event['title'], event['description'], event['type'], event['date'], event['time'], event['location'], event['image_url']))
@@ -1858,7 +1849,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     
     pitch_ids = []
     for pitch in pitches:
-        cursor.execute('''INSERT INTO pitches (founder_id, title, tagline, pitch_overview, highlights,
+        safe_execute('''INSERT INTO pitches (founder_id, title, tagline, pitch_overview, highlights,
                           team_members, pitch_deck_images, category, website, social_links, status)
                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                        (pitch['founder_id'], pitch['title'], pitch['tagline'], pitch['pitch_overview'],
@@ -1881,7 +1872,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     ]
     
     for interest in interests:
-        cursor.execute('''INSERT INTO pitch_interests (pitch_id, investor_id, message, status)
+        safe_execute('''INSERT INTO pitch_interests (pitch_id, investor_id, message, status)
                           VALUES (?, ?, ?, ?)''',
                        (interest['pitch_id'], interest['investor_id'], interest['message'], interest['status']))
     print(f"✓ LaunchDeck investor interests seeded ({len(interests)} interests)")
@@ -1896,7 +1887,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     ]
     
     for req in ld_mentorship:
-        cursor.execute('''INSERT INTO launchdeck_mentorship_requests (founder_id, mentor_id, pitch_id, message, status)
+        safe_execute('''INSERT INTO launchdeck_mentorship_requests (founder_id, mentor_id, pitch_id, message, status)
                           VALUES (?, ?, ?, ?, ?)''',
                        (req['founder_id'], req['mentor_id'], req['pitch_id'], req['message'], req['status']))
     print(f"✓ LaunchDeck mentorship requests seeded ({len(ld_mentorship)} requests)")
@@ -1919,7 +1910,7 @@ The journey is hard, but incredibly rewarding. Would I do it again? Absolutely.
     ]
     
     for notif in notifications:
-        cursor.execute('''INSERT INTO admin_notifications (type, reference_id, message, is_read, created_at)
+        safe_execute('''INSERT INTO admin_notifications (type, reference_id, message, is_read, created_at)
                           VALUES (?, ?, ?, ?, ?)''',
                        (notif['type'], notif['reference_id'], notif['message'], notif['is_read'], notif['created_at']))
     print(f"✓ LaunchDeck admin notifications seeded ({len(notifications)} notifications)")
