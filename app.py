@@ -1,13 +1,8 @@
 from dotenv import load_dotenv  # type: ignore
-
 load_dotenv()
 from flask import Flask, request, jsonify, send_from_directory  # type: ignore
 from flask_cors import CORS  # type: ignore
-from core_middleware import (
-    log_request_info,
-    register_jwt_error_handlers,
-    get_user_id_from_jwt,
-)
+from core_middleware import log_request_info, register_jwt_error_handlers, get_user_id_from_jwt
 from database import get_db_path, get_db_connection
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity  # type: ignore
 from werkzeug.security import generate_password_hash, check_password_hash  # type: ignore
@@ -19,82 +14,60 @@ import uuid
 from datetime import datetime, timedelta
 
 
+
 app = Flask(__name__)
 app.url_map.strict_slashes = False
 from extensions import limiter
-
 limiter.init_app(app)
 from auth.auth_controller import auth_bp
 from profile.profile_controller import profile_bp
-
-app.register_blueprint(auth_bp, url_prefix="/api/auth")
-app.register_blueprint(profile_bp, url_prefix="/api/profile")
+app.register_blueprint(auth_bp, url_prefix='/api/auth')
+app.register_blueprint(profile_bp, url_prefix='/api/profile')
 from launchpad.launchpad_controller import launchpad_bp
-
-app.register_blueprint(launchpad_bp, url_prefix="/api")
+app.register_blueprint(launchpad_bp, url_prefix='/api')
 from launchdeck.launchdeck_controller import launchdeck_bp
-
-app.register_blueprint(launchdeck_bp, url_prefix="/api")
+app.register_blueprint(launchdeck_bp, url_prefix='/api')
 from events.events_controller import events_bp
-
-app.register_blueprint(events_bp, url_prefix="/api")
+app.register_blueprint(events_bp, url_prefix='/api')
 from courses.courses_controller import courses_bp
-
-app.register_blueprint(courses_bp, url_prefix="/api")
+app.register_blueprint(courses_bp, url_prefix='/api')
 from messages.messages_controller import messages_bp
-
-app.register_blueprint(messages_bp, url_prefix="/api")
+app.register_blueprint(messages_bp, url_prefix='/api')
 from resources.resources_controller import resources_bp
-
-app.register_blueprint(resources_bp, url_prefix="/api")
+app.register_blueprint(resources_bp, url_prefix='/api')
 from admin.admin_controller import admin_bp
-
-app.register_blueprint(admin_bp, url_prefix="/api/admin")
+app.register_blueprint(admin_bp, url_prefix='/api/admin')
 from sitemap.sitemap_controller import sitemap_bp
-
 app.register_blueprint(sitemap_bp)
-app.config["JWT_SECRET_KEY"] = os.environ.get(
-    "JWT_SECRET_KEY", "dev-secret-key-change-in-production"
-)
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
-app.config["UPLOAD_FOLDER"] = "uploads"
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max file size
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
+app.config['UPLOAD_FOLDER'] = '.uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 jwt = JWTManager(app)
 # Configure CORS to allow all origins and headers for now to fix the blocking issue
-CORS(
-    app,
-    origins="*",
-    allow_headers=["Content-Type", "Authorization"],
-    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-)
+CORS(app, origins="*", allow_headers=["Content-Type", "Authorization"], methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"])
 
 # Create uploads directory if it doesn't exist
-os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Handle CORS preflight BEFORE any JWT middleware runs.
 # @jwt_required() routes return 401 on OPTIONS (no token in preflight),
 # which causes the browser to reject the preflight entirely.
 from flask import make_response as _make_response
-
-
 @app.before_request
 def handle_preflight():
     if request.method == "OPTIONS":
         res = _make_response()
         res.headers["Access-Control-Allow-Origin"] = "*"
         res.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-        res.headers["Access-Control-Allow-Methods"] = (
-            "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        )
+        res.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
         res.status_code = 200
         return res
-
 
 # Register middlewares
 app.before_request(log_request_info)
 register_jwt_error_handlers(jwt)
-
 
 # Database initialization
 def init_db():
@@ -102,10 +75,9 @@ def init_db():
 
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-
+    
     # Users table
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -132,139 +104,133 @@ def init_db():
             alumni_type TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """
-    )
-
+    ''')
+    
     # Site Stats table
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS site_stats (
             key TEXT PRIMARY KEY,
             label TEXT NOT NULL,
             value TEXT NOT NULL,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """
-    )
-
+    ''')
+    
     # Add new columns if they don't exist (for existing databases)
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN hall TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN hall TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN branch TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN branch TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN alumni_type TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN alumni_type TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN bio TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN bio TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN current_company TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN current_company TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN current_position TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN current_position TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN location TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN location TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN work_preference TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN work_preference TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN phone TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN phone TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN website TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN website TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN linkedin TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN linkedin TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN github TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN github TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN avatar TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN avatar TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN years_of_experience INTEGER")
+        cursor.execute('ALTER TABLE users ADD COLUMN years_of_experience INTEGER')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN domain TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN domain TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN tech_skills TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN tech_skills TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN is_blocked BOOLEAN DEFAULT 0")
+        cursor.execute('ALTER TABLE users ADD COLUMN is_blocked BOOLEAN DEFAULT 0')
     except:
         pass
 
     # Site Stats table
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS site_stats (
             key TEXT PRIMARY KEY,
             label TEXT NOT NULL,
             value TEXT NOT NULL,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """
-    )
+    ''')
 
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN program TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN program TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN cv_pdf TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN cv_pdf TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN joining_year INTEGER")
+        cursor.execute('ALTER TABLE users ADD COLUMN joining_year INTEGER')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN institute TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN institute TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN specialization TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN specialization TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN past_projects TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN past_projects TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN is_available BOOLEAN DEFAULT 1")
+        cursor.execute('ALTER TABLE users ADD COLUMN is_available BOOLEAN DEFAULT 1')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN is_approved BOOLEAN DEFAULT 1")
+        cursor.execute('ALTER TABLE users ADD COLUMN is_approved BOOLEAN DEFAULT 1')
     except:
         pass
-
+    
     # Mentorship requests table
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS mentorship_requests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             student_id INTEGER NOT NULL,
@@ -275,12 +241,10 @@ def init_db():
             FOREIGN KEY (student_id) REFERENCES users (id),
             FOREIGN KEY (alumni_id) REFERENCES users (id)
         )
-    """
-    )
-
+    ''')
+    
     # User skills table
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_skills (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -290,12 +254,10 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
-    """
-    )
-
+    ''')
+    
     # User achievements table
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_achievements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -307,12 +269,10 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
-    """
-    )
-
+    ''')
+    
     # User languages table
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_languages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -321,12 +281,10 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
-    """
-    )
+    ''')
 
     # Launchpad Services table
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS services (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             provider_id INTEGER NOT NULL,
@@ -340,12 +298,10 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (provider_id) REFERENCES users (id)
         )
-    """
-    )
-
+    ''')
+    
     # Launchpad Service Requests table
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS service_requests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -359,11 +315,9 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users (id),
             FOREIGN KEY (service_id) REFERENCES services (id)
         )
-    """
-    )
+    ''')
     # Service timeline items (for "How we do" / journey per service, managed by admin)
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS service_timeline_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             service_id INTEGER NOT NULL,
@@ -377,11 +331,9 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (service_id) REFERENCES services (id)
         )
-    """
-    )
+    ''')
     # Service reviews & past work (for Reviews & Past Work section on service detail)
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS service_reviews (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             service_id INTEGER NOT NULL,
@@ -391,12 +343,10 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (service_id) REFERENCES services (id)
         )
-    """
-    )
+    ''')
 
     # Student service profile (CV + important data for service matching)
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS student_service_profiles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL UNIQUE,
@@ -411,11 +361,9 @@ def init_db():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
-    """
-    )
+    ''')
     # Service allotments (student selected for a service; agree/decline)
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS service_allotments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             service_id INTEGER NOT NULL,
@@ -427,12 +375,10 @@ def init_db():
             FOREIGN KEY (student_id) REFERENCES users (id),
             UNIQUE(service_id, student_id)
         )
-    """
-    )
+    ''')
 
     # Courses table
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
@@ -444,11 +390,9 @@ def init_db():
             image_url TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """
-    )
-
-    cursor.execute(
-        """
+    ''')
+    
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS event_enrollments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -457,29 +401,27 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users (id),
             FOREIGN KEY (event_id) REFERENCES events (id)
         )
-    """
-    )
-
+    ''')
+    
     # Add speaker fields to events table if they don't exist
     try:
-        cursor.execute("ALTER TABLE events ADD COLUMN speaker_name TEXT")
+        cursor.execute('ALTER TABLE events ADD COLUMN speaker_name TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE events ADD COLUMN speaker_bio TEXT")
+        cursor.execute('ALTER TABLE events ADD COLUMN speaker_bio TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE events ADD COLUMN speaker_image TEXT")
+        cursor.execute('ALTER TABLE events ADD COLUMN speaker_image TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE events ADD COLUMN speaker_contact TEXT")
+        cursor.execute('ALTER TABLE events ADD COLUMN speaker_contact TEXT')
     except:
         pass
 
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS courses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
@@ -494,46 +436,44 @@ def init_db():
             start_date DATE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """
-    )
-
+    ''')
+    
     # Add instructor and curriculum fields to courses table
     try:
-        cursor.execute("ALTER TABLE courses ADD COLUMN instructor_name TEXT")
+        cursor.execute('ALTER TABLE courses ADD COLUMN instructor_name TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE courses ADD COLUMN instructor_bio TEXT")
+        cursor.execute('ALTER TABLE courses ADD COLUMN instructor_bio TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE courses ADD COLUMN instructor_image TEXT")
+        cursor.execute('ALTER TABLE courses ADD COLUMN instructor_image TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE courses ADD COLUMN what_you_learn TEXT")
+        cursor.execute('ALTER TABLE courses ADD COLUMN what_you_learn TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE courses ADD COLUMN requirements TEXT")
+        cursor.execute('ALTER TABLE courses ADD COLUMN requirements TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE courses ADD COLUMN lessons TEXT")
+        cursor.execute('ALTER TABLE courses ADD COLUMN lessons TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE courses ADD COLUMN skill_tags TEXT")
+        cursor.execute('ALTER TABLE courses ADD COLUMN skill_tags TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE courses ADD COLUMN lessons_count INTEGER DEFAULT 0")
+        cursor.execute('ALTER TABLE courses ADD COLUMN lessons_count INTEGER DEFAULT 0')
     except:
         pass
 
     # Course Enrollments table
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS course_enrollments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -545,27 +485,25 @@ def init_db():
             FOREIGN KEY (course_id) REFERENCES courses (id),
             UNIQUE(user_id, course_id)
         )
-    """
-    )
-
+    ''')
+    
     # Student verification columns
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN roll_number TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN roll_number TEXT')
     except:
         pass
     try:
-        cursor.execute("ALTER TABLE users ADD COLUMN id_card_image TEXT")
+        cursor.execute('ALTER TABLE users ADD COLUMN id_card_image TEXT')
     except:
         pass
-
+    
     # Service request admin_notes column
     try:
-        cursor.execute("ALTER TABLE service_requests ADD COLUMN admin_notes TEXT")
+        cursor.execute('ALTER TABLE service_requests ADD COLUMN admin_notes TEXT')
     except:
         pass
     # Resources table
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS resources (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
@@ -575,12 +513,10 @@ def init_db():
             image_url TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """
-    )
+    ''')
 
     # LaunchDeck - Pitches table (founder startup pitch data)
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS pitches (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             founder_id INTEGER NOT NULL,
@@ -599,12 +535,10 @@ def init_db():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (founder_id) REFERENCES users (id)
         )
-    """
-    )
+    ''')
 
     # LaunchDeck - Pitch Interests table (investor interest submissions)
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS pitch_interests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             pitch_id INTEGER NOT NULL,
@@ -616,12 +550,10 @@ def init_db():
             FOREIGN KEY (investor_id) REFERENCES users (id),
             UNIQUE(pitch_id, investor_id)
         )
-    """
-    )
+    ''')
 
     # LaunchDeck - Mentorship Requests table
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS launchdeck_mentorship_requests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             pitch_id INTEGER NOT NULL,
@@ -634,12 +566,10 @@ def init_db():
             FOREIGN KEY (founder_id) REFERENCES users (id),
             FOREIGN KEY (mentor_id) REFERENCES users (id)
         )
-    """
-    )
+    ''')
 
     # LaunchDeck - Admin Notifications table
-    cursor.execute(
-        """
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS admin_notifications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             type TEXT NOT NULL,
@@ -648,62 +578,43 @@ def init_db():
             is_read BOOLEAN DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """
-    )
+    ''')
 
     # Payment screenshot columns
     try:
-        cursor.execute(
-            "ALTER TABLE course_enrollments ADD COLUMN payment_screenshot TEXT"
-        )
+        cursor.execute('ALTER TABLE course_enrollments ADD COLUMN payment_screenshot TEXT')
     except:
         pass
     try:
-        cursor.execute(
-            "ALTER TABLE service_requests ADD COLUMN payment_screenshot TEXT"
-        )
+        cursor.execute('ALTER TABLE service_requests ADD COLUMN payment_screenshot TEXT')
     except:
         pass
 
     conn.commit()
     conn.close()
 
-
-@app.route("/", methods=["GET"])
+@app.route('/', methods=['GET'])
 def health_check():
     db_path = get_db_path()
-    db_status = "connected" if os.path.exists(db_path) else "missing"
-    return (
-        jsonify(
-            {
-                "status": "healthy",
-                "timestamp": datetime.now().isoformat(),
-                "database": db_status,
-            }
-        ),
-        200,
-    )
+    db_status = 'connected' if os.path.exists(db_path) else 'missing'
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'database': db_status
+    }), 200
 
-
-@app.route("/api/health", methods=["GET"])
+@app.route('/api/health', methods=['GET'])
 def api_health():
     db_path = get_db_path()
-    db_status = "connected" if os.path.exists(db_path) else "missing"
-    return (
-        jsonify(
-            {
-                "status": "ok",
-                "timestamp": datetime.utcnow().isoformat(),
-                "database": db_status,
-            }
-        ),
-        200,
-    )
-
+    db_status = 'connected' if os.path.exists(db_path) else 'missing'
+    return jsonify({
+        'status': 'ok',
+        'timestamp': datetime.utcnow().isoformat(),
+        'database': db_status
+    }), 200
 
 init_db()
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5001))
-    debug_mode = os.environ.get("ENVIRONMENT") != "production"
-    app.run(debug=debug_mode, port=port)
+if __name__ == '__main__':
+    app.run(debug=True, port=5001)
+    app.run(debug=True, port=5001)

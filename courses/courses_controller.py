@@ -1,6 +1,9 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_from_directory, current_app
 from flask_jwt_extended import jwt_required
 from core_middleware import get_user_id_from_jwt
+from werkzeug.utils import secure_filename
+import os
+import uuid
 from . import courses_model
 
 courses_bp = Blueprint('courses_bp', __name__)
@@ -20,6 +23,20 @@ def get_course_detail(course_id):
         return jsonify(course), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@courses_bp.route('/courses/<int:course_id>/enrollment-status', methods=['GET'])
+@jwt_required(optional=True)
+def get_enrollment_status(course_id):
+    try:
+        user_id = get_user_id_from_jwt()
+        if not user_id:
+            return jsonify({'status': None}), 200
+            
+        status = courses_model.get_enrollment_status(user_id, course_id)
+        return jsonify({'status': status}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 @courses_bp.route('/courses', methods=['POST'])
 @jwt_required()
@@ -45,7 +62,20 @@ def update_course(course_id):
 @jwt_required()
 def enroll_course(course_id):
     try:
-        success, msg, code = courses_model.enroll_course(get_user_id_from_jwt(), course_id)
+        user_id = get_user_id_from_jwt()
+        screenshot_filename = None
+        
+        if 'screenshot' in request.files:
+            file = request.files['screenshot']
+            if file.filename:
+                ext = os.path.splitext(file.filename)[1].lower()
+                if ext not in ['.jpg', '.jpeg', '.png', '.gif']:
+                    return jsonify({'error': 'Invalid file type for screenshot'}), 400
+                screenshot_filename = f"payment_{course_id}_{user_id}_{uuid.uuid4().hex}{ext}"
+                file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], screenshot_filename)
+                file.save(file_path)
+
+        success, msg, code = courses_model.enroll_course(user_id, course_id, screenshot_filename)
         if not success: return jsonify({'error': msg}), code
         return jsonify({'message': msg}), code
     except Exception as e:
@@ -78,3 +108,27 @@ def get_user_enrolled_courses():
         return jsonify(courses_model.get_user_enrolled_courses(get_user_id_from_jwt())), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@courses_bp.route('/admin/courses/enrollments/<int:enrollment_id>/status', methods=['POST'])
+@jwt_required()
+def update_enrollment_status(enrollment_id):
+    try:
+        data = request.get_json() or {}
+        status = data.get('status')
+        message = data.get('message', '')
+        
+        if status not in ['approved', 'rejected']:
+            return jsonify({'error': 'Invalid status'}), 400
+            
+        success, msg, code = courses_model.update_enrollment_status(get_user_id_from_jwt(), enrollment_id, status, message)
+        if not success: return jsonify({'error': msg}), code
+        return jsonify({'message': msg}), code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@courses_bp.route('/payment-screenshot/<path:filename>')
+def get_payment_screenshot(filename):
+    try:
+        return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+    except Exception as e:
+        return jsonify({'error': 'File not found'}), 404

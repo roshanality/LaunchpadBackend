@@ -6,7 +6,13 @@ def log_request_info():
         print(f"DEBUG: Incoming request: {request.method} {request.path}")
         print(f"DEBUG: Headers: {dict(request.headers)}")
         if request.method == 'POST':
-            print(f"DEBUG: Body: {request.get_data(as_text=True)}")
+            if request.content_type and 'multipart/form-data' in request.content_type:
+                print(f"DEBUG: Body: [Multipart Form Data - Not shown]")
+            else:
+                try:
+                    print(f"DEBUG: Body: {request.get_data(as_text=True)}")
+                except Exception:
+                    print(f"DEBUG: Body: [Binary Data - Cannot display]")
 
 def get_user_id_from_jwt():
     identity = get_jwt_identity()
